@@ -1,11 +1,14 @@
 /*
 This file is the main plugin file for the Obsidian RAG Test Plugin.
-It registers a ribbon icon that, when clicked, opens the custom sidebar view (Test Dashboard).
-It also handles indexing of test notes in the "Test" folder and persisting the index.
+It registers a ribbon icon that, when clicked, opens the dashboard view for selecting notes.
+It also registers the full-screen Question Document view and exposes a method to open that view.
+It handles indexing of notes, persisting settings, and provides a settings tab for configuration.
 */
 
-import { App, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from 'obsidian';
-import TestView, { VIEW_TYPE } from './TestView';
+import { App, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from "obsidian";
+import TestDashboardView, { VIEW_TYPE as DASHBOARD_VIEW_TYPE } from "./src/components/TestDashboardView";
+import QuestionDocumentView, { QUESTION_VIEW_TYPE } from "./src/components/QuestionDocumentView";
+import SettingsTab from "./src/components/SettingsTab";
 
 /**
  * Interface for test status.
@@ -27,10 +30,12 @@ export interface IndexedNote {
 
 interface MyPluginSettings {
 	mySetting: string;
+	apiKey: string;
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+	mySetting: "default",
+	apiKey: ""
 };
 
 /**
@@ -47,39 +52,42 @@ interface MyPluginData {
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
 	indexedNotes: IndexedNote[] = [];
-	testViewLeaf: WorkspaceLeaf | null = null;
+	testDashboardLeaf: WorkspaceLeaf | null = null;
 
 	/**
 	 * Called when the plugin is loaded.
 	 */
 	async onload() {
 		await this.loadSettings();
-		this.registerView(VIEW_TYPE, (leaf: WorkspaceLeaf) => new TestView(leaf, this.app, this.indexedNotes));
-		this.addRibbonIcon('dice', 'Test Dashboard', (evt: MouseEvent) => {
+		// Register dashboard view for note selection.
+		this.registerView(DASHBOARD_VIEW_TYPE, (leaf: WorkspaceLeaf) => new TestDashboardView(leaf, this.app, this.indexedNotes));
+		// Register full-screen question document view.
+		this.registerView(QUESTION_VIEW_TYPE, (leaf: WorkspaceLeaf) => new QuestionDocumentView(leaf, this.app, []));
+		
+		this.addRibbonIcon("dice", "Test Dashboard", (evt: MouseEvent) => {
 			this.openTestDashboard();
 		});
-		this.addStatusBarItem().setText('RAG Test Plugin Active');
+		this.addStatusBarItem().setText("RAG Test Plugin Active");
 		this.addCommand({
-			id: 'open-test-dashboard',
-			name: 'Open Test Dashboard',
+			id: "open-test-dashboard",
+			name: "Open Test Dashboard",
 			callback: () => {
 				this.openTestDashboard();
 			}
 		});
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('Document clicked', evt);
+		this.addSettingTab(new SettingsTab(this.app, this));
+		this.registerDomEvent(document, "click", (evt: MouseEvent) => {
+			console.log("Document clicked", evt);
 		});
-		this.registerInterval(window.setInterval(() => console.log('Interval log'), 5 * 60 * 1000));
+		this.registerInterval(window.setInterval(() => console.log("Interval log"), 5 * 60 * 1000));
 	}
 
 	/**
 	 * Called when the plugin is unloaded.
 	 */
 	onunload() {
-		if (this.testViewLeaf) {
-			this.app.workspace.detachLeavesOfType(VIEW_TYPE);
-		}
+		this.app.workspace.detachLeavesOfType(DASHBOARD_VIEW_TYPE);
+		this.app.workspace.detachLeavesOfType(QUESTION_VIEW_TYPE);
 	}
 
 	/**
@@ -108,11 +116,12 @@ export default class MyPlugin extends Plugin {
 	}
 
 	/**
-	 * Indexes Markdown files in the "Test" folder, extracts test readiness data, and persists the index.
+	 * Indexes all Markdown files in the vault, extracts test readiness data, and persists the index.
 	 */
 	async indexTestNotes() {
 		this.indexedNotes = [];
-		const markdownFiles = this.app.vault.getMarkdownFiles().filter((file: TFile) => file.path.startsWith("Test/"));
+		// Scan all Markdown files without filtering by folder.
+		const markdownFiles = this.app.vault.getMarkdownFiles();
 		for (const file of markdownFiles) {
 			const content = await this.app.vault.read(file);
 			const testsReady = content.includes("## Test");
@@ -131,59 +140,44 @@ export default class MyPlugin extends Plugin {
 			console.log(`Indexed: ${file.path}`);
 		}
 		await this.saveSettings();
-		new Notice(`Indexed ${this.indexedNotes.length} test notes`);
+		new Notice(`Indexed ${this.indexedNotes.length} notes`);
 	}
 
 	/**
 	 * Opens the test dashboard view in the left sidebar.
 	 */
 	openTestDashboard() {
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE);
+		this.app.workspace.detachLeavesOfType(DASHBOARD_VIEW_TYPE);
 		const leaf = this.app.workspace.getLeftLeaf(false);
 		if (!leaf) {
-			new Notice('Could not obtain workspace leaf.');
+			new Notice("Could not obtain workspace leaf.");
 			return;
 		}
 		leaf.setViewState({
-			type: VIEW_TYPE,
+			type: DASHBOARD_VIEW_TYPE,
 			active: true
 		});
 		this.app.workspace.revealLeaf(leaf);
-		this.testViewLeaf = leaf;
-	}
-}
-
-/**
- * Settings tab for the RAG Test Plugin.
- */
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	/**
-	 * Constructs the settings tab.
-	 * @param app The Obsidian application instance.
-	 * @param plugin The plugin instance.
-	 */
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
+		this.testDashboardLeaf = leaf;
 	}
 
 	/**
-	 * Renders the settings tab.
+	 * Opens a full-screen question document view with the provided test questions.
+	 * @param questions - An array of test question strings.
 	 */
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc("It's a secret")
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value: string) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+	public openQuestionDocument(questions: string[]): void {
+		this.app.workspace.detachLeavesOfType(QUESTION_VIEW_TYPE);
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) {
+			new Notice("Could not obtain workspace leaf for question document.");
+			return;
+		}
+		leaf.setViewState({
+			type: QUESTION_VIEW_TYPE,
+			active: true
+		});
+		this.app.workspace.revealLeaf(leaf);
+		// Instantiate the full-screen view with the questions.
+		new QuestionDocumentView(leaf, this.app, questions);
 	}
 }

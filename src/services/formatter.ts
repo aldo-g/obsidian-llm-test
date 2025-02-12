@@ -3,7 +3,7 @@ This file contains functions to format indexed notes into a prompt for an LLM.
 It exports a function formatNotesForLLM that takes an array of IndexedNote and returns a formatted prompt string.
 */
 
-import type { IndexedNote } from "./types";
+import type { IndexedNote } from "../models/types";
 
 /**
  * Formats an array of IndexedNote objects into a structured prompt string for the LLM.

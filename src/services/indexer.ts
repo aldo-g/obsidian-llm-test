@@ -5,7 +5,7 @@ extracts test-related markers (if any), and returns an array of IndexedNote obje
 */
 
 import { App } from "obsidian";
-import type { IndexedNote, TestStatus } from "./types";
+import type { IndexedNote, TestStatus } from "../models/types";
 
 /**
  * Scans all Markdown files in the vault and extracts test data.
