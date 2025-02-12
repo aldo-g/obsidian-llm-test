@@ -1,8 +1,9 @@
 /*
 This file is the main plugin file for the Obsidian RAG Test Plugin.
 It registers a ribbon icon that, when clicked, opens the dashboard view for selecting notes.
-It also registers the full-screen Question Document view and exposes a method to open that view.
-It handles indexing of notes, persisting settings, and provides a settings tab for configuration.
+It also registers both the dashboard view and the full-screen question document view,
+handles indexing of notes, persists settings, and provides a settings tab for configuration.
+It also exposes a public method to open the full-screen question document view.
 */
 
 import { App, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from "obsidian";
@@ -59,9 +60,9 @@ export default class MyPlugin extends Plugin {
 	 */
 	async onload() {
 		await this.loadSettings();
-		// Register dashboard view for note selection.
+		// Register the dashboard view for note selection.
 		this.registerView(DASHBOARD_VIEW_TYPE, (leaf: WorkspaceLeaf) => new TestDashboardView(leaf, this.app, this.indexedNotes));
-		// Register full-screen question document view.
+		// Register the full-screen question document view.
 		this.registerView(QUESTION_VIEW_TYPE, (leaf: WorkspaceLeaf) => new QuestionDocumentView(leaf, this.app, []));
 		
 		this.addRibbonIcon("dice", "Test Dashboard", (evt: MouseEvent) => {
@@ -165,19 +166,28 @@ export default class MyPlugin extends Plugin {
 	 * Opens a full-screen question document view with the provided test questions.
 	 * @param questions - An array of test question strings.
 	 */
-	public openQuestionDocument(questions: string[]): void {
+	public async openQuestionDocument(questions: string[]): Promise<void> {
 		this.app.workspace.detachLeavesOfType(QUESTION_VIEW_TYPE);
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (!leaf) {
 			new Notice("Could not obtain workspace leaf for question document.");
 			return;
 		}
-		leaf.setViewState({
+		// Set the view state with the questions.
+		await leaf.setViewState({
 			type: QUESTION_VIEW_TYPE,
-			active: true
+			active: true,
+			state: { questions }
 		});
 		this.app.workspace.revealLeaf(leaf);
-		// Instantiate the full-screen view with the questions.
-		new QuestionDocumentView(leaf, this.app, questions);
+		// For extra safety, explicitly update the view instance if available.
+		const view = leaf.view as any;
+		if (view) {
+			console.log("openQuestionDocument: view instance found, updating questions.");
+			view.questions = questions;
+			view.render();
+		} else {
+			console.log("openQuestionDocument: view instance not available.");
+		}
 	}
 }
