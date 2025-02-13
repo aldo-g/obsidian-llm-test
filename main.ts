@@ -180,14 +180,16 @@ export default class MyPlugin extends Plugin {
 			state: { questions }
 		});
 		this.app.workspace.revealLeaf(leaf);
-		// For extra safety, explicitly update the view instance if available.
-		const view = leaf.view as any;
-		if (view) {
-			console.log("openQuestionDocument: view instance found, updating questions.");
-			view.questions = questions;
-			view.render();
-		} else {
-			console.log("openQuestionDocument: view instance not available.");
-		}
+		// Wait a short time for the view to initialize, then update the view instance.
+		setTimeout(() => {
+			const view = leaf.view as any;
+			if (view) {
+				console.log("openQuestionDocument: view instance found, updating questions.");
+				view.questions = questions;
+				view.render();
+			} else {
+				console.log("openQuestionDocument: view instance not available.");
+			}
+		}, 100);
 	}
 }

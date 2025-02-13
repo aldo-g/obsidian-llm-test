@@ -2,10 +2,11 @@
 This file implements a full-page view for displaying generated test questions.
 It renders an interactive document where each question is displayed with an input field for the user's answer,
 and includes a "Mark Test" button to submit the answers.
-Debug logs are added to verify that the questions are correctly passed into the view.
+The view expects an array of GeneratedTest objects but displays only the question text.
 */
 
 import { App, ItemView, Notice, WorkspaceLeaf } from "obsidian";
+import type { GeneratedTest } from "../models/types";
 
 export const QUESTION_VIEW_TYPE = "question-document-view";
 
@@ -13,18 +14,18 @@ export const QUESTION_VIEW_TYPE = "question-document-view";
  * A full-page view for displaying test questions.
  */
 export default class QuestionDocumentView extends ItemView {
-	questions: string[];
+	generatedTests: GeneratedTest[];
 
 	/**
 	 * Constructs the QuestionDocumentView.
 	 * @param leaf - The workspace leaf to attach the view.
 	 * @param app - The Obsidian application instance.
-	 * @param questions - An array of test question strings.
+	 * @param generatedTests - An array of generated test objects.
 	 */
-	constructor(leaf: WorkspaceLeaf, app: App, questions: string[]) {
+	constructor(leaf: WorkspaceLeaf, app: App, generatedTests: GeneratedTest[]) {
 		super(leaf);
-		this.questions = questions;
-		console.log("QuestionDocumentView constructor: initial questions =", this.questions);
+		this.generatedTests = generatedTests;
+		console.log("QuestionDocumentView constructor: initial generatedTests =", this.generatedTests);
 	}
 
 	/**
@@ -47,13 +48,13 @@ export default class QuestionDocumentView extends ItemView {
 	 * Called when the view is opened; retrieves state and triggers rendering.
 	 */
 	async onOpen(): Promise<void> {
-		const state = this.getState() as { questions?: string[] } | undefined;
+		const state = this.getState() as { questions?: GeneratedTest[] } | undefined;
 		console.log("QuestionDocumentView onOpen: retrieved state =", state);
 		if (state && state.questions) {
-			this.questions = state.questions;
+			this.generatedTests = state.questions;
 		}
-		console.log("QuestionDocumentView onOpen: questions length =", this.questions.length);
-		if (this.questions.length === 0) {
+		console.log("QuestionDocumentView onOpen: generatedTests length =", this.generatedTests.length);
+		if (this.generatedTests.length === 0) {
 			new Notice("No test questions available. Please generate tests first.");
 		}
 		this.render();
@@ -73,22 +74,23 @@ export default class QuestionDocumentView extends ItemView {
 	render(): void {
 		const container = this.containerEl;
 		container.empty();
-		console.log("QuestionDocumentView render: rendering questions, count =", this.questions.length);
+		console.log("QuestionDocumentView render: rendering generatedTests, count =", this.generatedTests.length);
 
 		const titleEl = container.createEl("h1", { text: "Generated Test Questions" });
 		const formEl = container.createEl("form");
 		formEl.style.display = "block";
 		formEl.style.width = "100%";
 
-		if (this.questions.length === 0) {
+		if (this.generatedTests.length === 0) {
 			const emptyEl = container.createEl("p", { text: "No questions to display." });
 			console.log("QuestionDocumentView render: no questions found.");
 		} else {
-			this.questions.forEach((question, index) => {
+			this.generatedTests.forEach((item, index) => {
 				const questionDiv = formEl.createEl("div", { cls: "question-item" });
 				questionDiv.style.marginBottom = "1em";
 
-				const label = questionDiv.createEl("label", { text: `Q${index + 1}: ${question}` });
+				// Display only the question text
+				const label = questionDiv.createEl("label", { text: `Q${index + 1}: ${item.question}` });
 				label.style.display = "block";
 				label.style.fontWeight = "bold";
 
@@ -97,6 +99,8 @@ export default class QuestionDocumentView extends ItemView {
 				input.style.width = "100%";
 				input.style.marginTop = "0.5em";
 				(input as HTMLElement).dataset.questionIndex = index.toString();
+				// Optionally, store the suggested answer (not displayed)
+				(input as HTMLElement).dataset.suggestedAnswer = item.suggestedAnswer;
 			});
 		}
 
@@ -104,13 +108,14 @@ export default class QuestionDocumentView extends ItemView {
 		markButton.type = "button";
 		markButton.style.marginTop = "1em";
 		markButton.addEventListener("click", () => {
-			const answers: { [key: number]: string } = {};
+			const answers: { [key: number]: { userAnswer: string; suggestedAnswer: string } } = {};
 			const inputs = formEl.querySelectorAll("input[type='text']") as NodeListOf<HTMLInputElement>;
 			inputs.forEach((input) => {
 				const idxStr = input.dataset.questionIndex;
+				const suggested = input.dataset.suggestedAnswer || "";
 				if (idxStr !== undefined) {
 					const idx = parseInt(idxStr, 10);
-					answers[idx] = input.value;
+					answers[idx] = { userAnswer: input.value, suggestedAnswer: suggested };
 				}
 			});
 			new Notice("Test answers submitted!");
