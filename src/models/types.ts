@@ -15,7 +15,7 @@ export interface LLMResponse {
 		index: number;
 		message: {
 			role: string;
-			// Expected to be a JSON string that parses to an array of GeneratedTest objects.
+			// Expected to be a JSON string that parses to a TestQuestionsResponse.
 			content: string;
 		};
 	}[];
@@ -27,11 +27,18 @@ export interface LLMResponse {
 }
 
 /**
- * Represents a generated test question and its suggested answer (which is stored but not shown to the user).
+ * Represents a generated test question returned from the LLM.
  */
 export interface GeneratedTest {
 	question: string;
-	suggestedAnswer: string;
+}
+
+/**
+ * Represents the complete LLM response for test questions.
+ */
+export interface TestQuestionsResponse {
+	description: string;
+	questions: GeneratedTest[];
 }
 
 /**

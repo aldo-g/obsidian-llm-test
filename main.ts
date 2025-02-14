@@ -163,33 +163,34 @@ export default class MyPlugin extends Plugin {
 	}
 
 	/**
-	 * Opens a full-screen question document view with the provided test questions.
-	 * @param questions - An array of test question strings.
+	 * Opens a full-screen question document view with the provided test questions response.
+	 * @param response - A TestQuestionsResponse object containing a description and an array of test questions.
 	 */
-	public async openQuestionDocument(questions: string[]): Promise<void> {
+	public async openQuestionDocument(response: { description: string; questions: any[] }): Promise<void> {
 		this.app.workspace.detachLeavesOfType(QUESTION_VIEW_TYPE);
 		const leaf = this.app.workspace.getRightLeaf(false);
 		if (!leaf) {
 			new Notice("Could not obtain workspace leaf for question document.");
 			return;
 		}
-		// Set the view state with the questions.
 		await leaf.setViewState({
 			type: QUESTION_VIEW_TYPE,
 			active: true,
-			state: { questions }
+			state: { response }
 		});
 		this.app.workspace.revealLeaf(leaf);
-		// Wait a short time for the view to initialize, then update the view instance.
+		console.log("openQuestionDocument: set view state with response:", response);
+		// Wait a bit to ensure the view is instantiated.
 		setTimeout(() => {
 			const view = leaf.view as any;
 			if (view) {
-				console.log("openQuestionDocument: view instance found, updating questions.");
-				view.questions = questions;
+				console.log("openQuestionDocument: view instance found, updating generatedTests and description.");
+				view.generatedTests = response.questions;
+				view.description = response.description;
 				view.render();
 			} else {
 				console.log("openQuestionDocument: view instance not available.");
 			}
-		}, 100);
+		}, 300);
 	}
 }

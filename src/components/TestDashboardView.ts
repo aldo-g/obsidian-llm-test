@@ -2,12 +2,15 @@
 This file implements a custom sidebar view (dashboard) for the Obsidian RAG Test Plugin.
 It displays a list of all indexed notes with checkboxes for selection and a "Create Tests" button.
 When "Create Tests" is clicked, an OpenAI API call is made for each selected note (using that note's full content)
-to generate test questions. All generated questions are then aggregated and displayed in a full-screen question document view.
+to generate test questions. While tests are being generated, a spinner is shown next to the respective file name.
+Once the tests are generated for a file, the spinner is replaced by a clickable icon which, when clicked,
+opens a full-screen view displaying the generated tests.
 */
 
 import { App, ItemView, Notice, WorkspaceLeaf } from "obsidian";
 import type { IndexedNote } from "../models/types";
 import { generateTestQuestions } from "../services/llm";
+import { QUESTION_VIEW_TYPE } from "./QuestionDocumentView";
 
 export const VIEW_TYPE = "rag-test-view";
 
@@ -53,7 +56,6 @@ export default class TestDashboardView extends ItemView {
 
 	/**
 	 * Called when the view is closed.
-	 * @returns A promise that resolves when the view is closed.
 	 */
 	async onClose(): Promise<void> {
 		// No cleanup needed.
@@ -81,6 +83,10 @@ export default class TestDashboardView extends ItemView {
 			const checkbox = itemEl.createEl("input", { type: "checkbox" });
 			checkbox.dataset.filePath = note.filePath;
 			itemEl.createEl("span", { text: ` ${note.filePath}` });
+			// Create spinner element (hidden by default)
+			const spinnerEl = itemEl.createEl("div", { cls: "spinner" });
+			spinnerEl.style.display = "none";
+			spinnerEl.style.marginLeft = "0.5em";
 			checkbox.addEventListener("change", () => {
 				this.updateCreateTestsButtonState(createTestsButton, listEl);
 			});
@@ -107,7 +113,7 @@ export default class TestDashboardView extends ItemView {
 
 	/**
 	 * For each selected note, calls the LLM API to generate test questions,
-	 * aggregates all questions, and then opens a full-screen view to display them.
+	 * and replaces the spinner with an icon that, when clicked, opens the full-screen view for that file's tests.
 	 */
 	async createTests(): Promise<void> {
 		const container = this.containerEl;
@@ -119,7 +125,6 @@ export default class TestDashboardView extends ItemView {
 			new Notice("❌ OpenAI API Key is missing! Please set it in the plugin settings.");
 			return;
 		}
-		let aggregatedQuestions: string[] = [];
 		for (const checkbox of Array.from(checkboxes)) {
 			const input = checkbox as HTMLInputElement;
 			if (input.checked) {
@@ -127,21 +132,42 @@ export default class TestDashboardView extends ItemView {
 				const note = this.pluginData.find(n => n.filePath === filePath);
 				if (!note) continue;
 				console.log(`Generating tests for: ${filePath}`);
+				const listItem = input.parentElement;
+				const spinnerEl = listItem?.querySelector(".spinner");
+				if (spinnerEl) {
+					spinnerEl.style.display = "inline-block";
+				}
 				try {
-					const questions = await generateTestQuestions([note], apiKey);
-					console.log(`Generated tests for ${filePath}:`, questions);
-					aggregatedQuestions.push(`Questions for ${filePath}:`);
-					aggregatedQuestions.push(...questions);
+					// Generate tests for this note.
+					const response = await generateTestQuestions([note], apiKey);
+					console.log(`Generated tests for ${filePath}:`, response);
+					// Remove spinner and add a view icon.
+					if (spinnerEl) {
+						spinnerEl.style.display = "none";
+						// Create a button with a document icon.
+						const iconBtn = document.createElement("button");
+						iconBtn.classList.add("view-tests-icon");
+						iconBtn.title = "View Generated Tests";
+						// Example inline SVG for a document icon (adjust as needed).
+						iconBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-text" viewBox="0 0 16 16">
+  <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5.5L9.5 0H4z"/>
+  <path d="M9.5 0v4a1 1 0 0 0 1 1h4"/>
+  <path fill-rule="evenodd" d="M4.5 7a.5.5 0 0 1 .5.5v.5h5v-1h-5V7.5a.5.5 0 0 1 .5-.5z"/>
+</svg>`;
+						// Append the icon button to the list item.
+						listItem?.appendChild(iconBtn);
+						// When clicked, open a full-screen view for this file's tests.
+						iconBtn.addEventListener("click", () => {
+							(plugin as any).openQuestionDocument(response);
+						});
+					}
 				} catch (error) {
 					console.error(`Error generating tests for ${filePath}:`, error);
+					if (spinnerEl) {
+						spinnerEl.style.display = "none";
+					}
 				}
 			}
-		}
-		if (aggregatedQuestions.length > 0) {
-			// Open a full-screen view (new page) to display the aggregated test questions.
-			(plugin as any).openQuestionDocument(aggregatedQuestions);
-		} else {
-			new Notice("No tests generated.");
 		}
 	}
 }
