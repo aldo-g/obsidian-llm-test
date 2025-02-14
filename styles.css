@@ -8,6 +8,7 @@ If your plugin does not need CSS, delete this file.
 */
 
 .spinner {
+    display: inline-block;
     border: 2px solid rgba(0, 0, 0, 0.1);
     border-left-color: #000;
     border-radius: 50%;
@@ -19,13 +20,12 @@ If your plugin does not need CSS, delete this file.
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
-
+  
   .view-tests-icon {
     background: none;
     border: none;
     cursor: pointer;
     padding: 0;
-    margin-left: 0.5em;
   }
   
   .view-tests-icon svg {
