@@ -78,12 +78,12 @@ export default class QuestionDocumentView extends ItemView {
 			input.style.marginTop = "0.5em";
 			input.dataset.questionIndex = index.toString();
 
-			// Restore previously saved answer
+			// If we have a saved answer, restore it
 			if (this.answers[index]) {
 				input.value = this.answers[index];
 			}
 
-			// Save on input
+			// On input, save answers & mark answered
 			input.addEventListener("input", () => {
 				this.answers[index] = input.value;
 				this.saveAnswers();
@@ -107,6 +107,7 @@ export default class QuestionDocumentView extends ItemView {
 		this.plugin.saveSettings();
 		console.log("saveAnswers: Saved answers for", this.filePath, this.answers);
 
+		// Mark answered => triggers re-render in dashboard to update icon color
 		this.plugin.markFileAnswered(this.filePath);
 	}
 }

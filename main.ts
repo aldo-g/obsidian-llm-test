@@ -1,3 +1,11 @@
+/*
+Main plugin file for the Obsidian RAG Test Plugin.
+Registers a ribbon icon that opens a dashboard view,
+registers both the dashboard and a full‑screen question document view,
+handles indexing of notes, persists settings (including test document state),
+and tracks test documents across sessions.
+*/
+
 import { App, Notice, Plugin } from "obsidian";
 import TestDashboardView, { VIEW_TYPE as DASHBOARD_VIEW_TYPE } from "./src/components/TestDashboardView";
 import QuestionDocumentView, { QUESTION_VIEW_TYPE } from "./src/components/QuestionDocumentView";
@@ -47,6 +55,7 @@ export default class MyPlugin extends Plugin {
 		console.log("onload: Loaded settings:", this.settings);
 		console.log("onload: Loaded testDocuments keys:", Object.keys(this.testDocuments));
 
+		// Register the dashboard and question doc views
 		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes));
 		this.registerView(QUESTION_VIEW_TYPE, (leaf) => new QuestionDocumentView(leaf, this.app, this, {
 			description: "",
@@ -66,10 +75,7 @@ export default class MyPlugin extends Plugin {
 
 		this.addSettingTab(new SettingsTab(this.app, this));
 
-		this.registerDomEvent(document, "click", (evt: MouseEvent) => {
-			console.log("Document clicked", evt);
-		});
-
+		// Interval log for debugging
 		this.registerInterval(window.setInterval(() => console.log("Interval log"), 5 * 60 * 1000));
 	}
 
@@ -141,9 +147,15 @@ export default class MyPlugin extends Plugin {
 		this.app.workspace.revealLeaf(leaf);
 	}
 
+	/**
+	 * Called after a user typed an answer. Refreshes the dashboard so it can update icon color.
+	 */
 	public markFileAnswered(filePath: string): void {
 		console.log(`File marked as answered: ${filePath}`);
-		// optionally update UI
+		const dashLeaf = this.app.workspace.getLeavesOfType("rag-test-view")[0];
+		if (dashLeaf && dashLeaf.view && dashLeaf.view.render) {
+			dashLeaf.view.render();
+		}
 	}
 
 	/**
@@ -154,7 +166,7 @@ export default class MyPlugin extends Plugin {
 		console.log("Available file paths in testDocuments are:", Object.keys(this.testDocuments));
 
 		if (!this.testDocuments[filePath]) {
-			console.error(`openQuestionDoc: No test document found for ${filePath}`);
+			new Notice("No tests found for this note. Generate tests first.");
 			return;
 		}
 		const response = this.testDocuments[filePath];
@@ -168,7 +180,6 @@ export default class MyPlugin extends Plugin {
 		});
 		this.app.workspace.revealLeaf(leaf);
 
-		// after the leaf is created
 		setTimeout(() => {
 			const view = leaf.view as QuestionDocumentView;
 			if (view) {
