@@ -1,32 +1,69 @@
 /*
-This file handles communication with OpenAI to generate test questions.
-It now expects a JSON-formatted response that returns an object with two keys:
-'description' (a brief context for the tests) and 'questions' (an array of objects, each with a single key 'question').
-If the JSON is incomplete or wrapped in markdown fences, the code attempts to clean the output.
+Services for LLM calls: 
+1) generateTestQuestions(...) 
+2) markTestAnswers(...) 
 */
 
 import { formatNotesForLLM } from "./formatter";
-import type { IndexedNote, LLMResponse, TestQuestionsResponse } from "../models/types";
+import type { IndexedNote } from "../models/types";
+
+export interface LLMResponse {
+	id: string;
+	object: string;
+	created: number;
+	model: string;
+	choices: {
+		index: number;
+		message: {
+			role: string;
+			content: string;
+		};
+	}[];
+	usage: {
+		prompt_tokens: number;
+		completion_tokens: number;
+		total_tokens: number;
+	};
+}
+
+/**
+ * The shape of the JSON returned for test questions:
+ * {
+ *   "description": string,
+ *   "questions": [{ question: string }, ...]
+ * }
+ */
+export interface TestQuestionsResponse {
+	description: string;
+	questions: { question: string }[];
+}
 
 const API_URL = "https://api.openai.com/v1/chat/completions";
 
 /**
  * Sends formatted note data to OpenAI and retrieves test questions as JSON.
- * @param indexedNotes - The indexed notes to generate questions from.
- * @param apiKey - The OpenAI API key.
- * @returns A promise that resolves to a TestQuestionsResponse object.
+ * The response must have two keys:
+ *   "description": string
+ *   "questions": [{ question: string }, ...]
  */
-export async function generateTestQuestions(indexedNotes: IndexedNote[], apiKey: string): Promise<TestQuestionsResponse> {
+export async function generateTestQuestions(
+	indexedNotes: IndexedNote[],
+	apiKey: string
+): Promise<TestQuestionsResponse> {
 	if (!apiKey) {
 		throw new Error("Missing OpenAI API key! Please set it in the plugin settings.");
 	}
 	const prompt = formatNotesForLLM(indexedNotes);
 	const requestBody = {
-		model: "gpt-4-turbo",
+		model: "gpt-4",
 		messages: [
-			{ 
-				role: "system", 
-				content: "You are a helpful AI that generates test questions from study notes. Respond ONLY with a JSON object with two keys: 'description' and 'questions'. 'description' should be a brief summary of what the tests cover. 'questions' should be an array of objects, each having a single key 'question'. Do not include any additional text or markdown formatting." 
+			{
+				role: "system",
+				content: `You are a helpful AI that generates test questions from study notes. 
+Respond ONLY with a JSON object with two keys: 'description' and 'questions'. 
+'description' is a brief summary of what the tests cover. 
+'questions' is an array of objects, each with a single key 'question'. 
+Do not include any additional text or markdown formatting.`
 			},
 			{ role: "user", content: prompt }
 		],
@@ -37,7 +74,7 @@ export async function generateTestQuestions(indexedNotes: IndexedNote[], apiKey:
 	const response = await fetch(API_URL, {
 		method: "POST",
 		headers: {
-			"Authorization": `Bearer ${apiKey}`,
+			Authorization: `Bearer ${apiKey}`,
 			"Content-Type": "application/json"
 		},
 		body: JSON.stringify(requestBody)
@@ -47,15 +84,15 @@ export async function generateTestQuestions(indexedNotes: IndexedNote[], apiKey:
 		throw new Error(`OpenAI API Error: ${response.statusText}`);
 	}
 
-	const responseData: LLMResponse = await response.json();
+	const responseData = await response.json() as LLMResponse;
 	const output = responseData.choices?.[0]?.message?.content;
 	if (!output) {
 		throw new Error("Invalid response from OpenAI");
 	}
 
-	console.log("Raw LLM output:", output);
+	console.log("Raw LLM output for questions:", output);
 
-	// Clean the output by trimming whitespace and removing markdown fences if present.
+	// Clean the JSON
 	let jsonString = output.trim();
 	if (jsonString.startsWith("```json")) {
 		jsonString = jsonString.slice(7).trim();
@@ -63,17 +100,14 @@ export async function generateTestQuestions(indexedNotes: IndexedNote[], apiKey:
 	if (jsonString.endsWith("```")) {
 		jsonString = jsonString.slice(0, -3).trim();
 	}
-	// If the JSON might be truncated, try to extract up to the last closing brace.
+
 	const lastBrace = jsonString.lastIndexOf("}");
 	if (lastBrace !== -1) {
 		jsonString = jsonString.slice(0, lastBrace + 1);
 	}
-	// Ensure the JSON string ends with a closing curly brace.
 	if (!jsonString.endsWith("}")) {
 		jsonString += "}";
 	}
-
-	console.log("Cleaned JSON string:", jsonString);
 
 	try {
 		const parsed: TestQuestionsResponse = JSON.parse(jsonString);
@@ -81,5 +115,90 @@ export async function generateTestQuestions(indexedNotes: IndexedNote[], apiKey:
 	} catch (err) {
 		console.error("Error parsing JSON from LLM response:", err, "Cleaned JSON string:", jsonString);
 		throw new Error("Failed to parse JSON response from OpenAI");
+	}
+}
+
+/**
+ * markTestAnswers sends your note content and question–answer pairs to the LLM,
+ * returning a concise JSON array, e.g.:
+ * [
+ *   { "questionNumber": 1, "correct": true, "feedback": "..." },
+ *   { "questionNumber": 2, "correct": false, "feedback": "..." },
+ *   ...
+ * ]
+ */
+export async function markTestAnswers(
+	noteContent: string,
+	qnaPairs: { question: string; answer: string }[],
+	apiKey: string
+): Promise<Array<{ questionNumber: number; correct: boolean; feedback: string }>> {
+	if (!apiKey) {
+		throw new Error("No API key provided for markTestAnswers.");
+	}
+
+	const systemMessage = `
+You are a helpful AI that grades user answers based on the provided source text. 
+Return your feedback ONLY as a JSON array, with each element containing:
+- "questionNumber": the question index (1-based)
+- "correct": true or false
+- "feedback": a concise explanation
+No extra text or markdown fences.
+`.trim();
+
+	let userPrompt = `SOURCE DOCUMENT:\n${noteContent}\n\nUSER'S ANSWERS:\n`;
+	qnaPairs.forEach((pair, idx) => {
+		userPrompt += `Q${idx + 1}: ${pair.question}\nAnswer: ${pair.answer}\n\n`;
+	});
+	userPrompt += `Please return a JSON array where each object has "questionNumber", "correct", and "feedback". 
+No extra text or formatting. 
+If you cannot judge correctness, please set "correct": false and provide minimal feedback.`;
+
+	const reqBody = {
+		model: "gpt-4",
+		messages: [
+			{ role: "system", content: systemMessage },
+			{ role: "user", content: userPrompt }
+		],
+		max_tokens: 1000,
+		temperature: 0.0
+	};
+
+	const resp = await fetch(API_URL, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify(reqBody)
+	});
+
+	if (!resp.ok) {
+		throw new Error(`OpenAI API error: ${resp.status} - ${resp.statusText}`);
+	}
+
+	const data = await resp.json() as LLMResponse;
+	let feedback = data.choices?.[0]?.message?.content;
+	if (!feedback) {
+		throw new Error("No content returned by LLM for markTestAnswers.");
+	}
+
+	feedback = feedback.trim();
+	console.log("Raw LLM Marking Output:", feedback);
+
+	// Clean potential triple-backticks
+	if (feedback.startsWith("```")) {
+		feedback = feedback.replace(/^```[a-z]*\n?/, "").replace(/```$/, "").trim();
+	}
+
+	try {
+		const parsed = JSON.parse(feedback) as Array<{
+			questionNumber: number;
+			correct: boolean;
+			feedback: string;
+		}>;
+		return parsed;
+	} catch (err) {
+		console.error("Error parsing JSON from LLM marking response:", err, "Raw:", feedback);
+		throw new Error("Failed to parse LLM marking JSON output.");
 	}
 }

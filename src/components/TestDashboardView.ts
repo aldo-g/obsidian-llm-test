@@ -10,7 +10,10 @@ export const VIEW_TYPE = "rag-test-view";
  * - Gray: no tests generated
  * - White: tests generated, no answers
  * - Orange: partial answers
- * - Green: all answers
+ * - Green: all answered
+ * 
+ * The gray icon is NOT clickable;
+ * for white/orange/green, it's wrapped in a <button> so the user can open the doc.
  */
 export default class TestDashboardView extends ItemView {
 	pluginData: IndexedNote[];
@@ -60,54 +63,58 @@ export default class TestDashboardView extends ItemView {
 			checkbox.dataset.filePath = note.filePath;
 			itemEl.createEl("span", { text: ` ${note.filePath}` });
 
-			// Make a clickable button for the icon
+			const docState = plugin.testDocuments[note.filePath];
+			let fillColor = "gray"; // no tests => gray
+			let clickable = false;  // not clickable if gray
+
+			if (docState) {
+				// tests exist => white/orange/green
+				const totalQ = docState.questions.length;
+				const answersArr = Object.values(docState.answers || {});
+				const answeredCount = answersArr.filter(a => a.trim().length > 0).length;
+
+				if (answeredCount === 0) {
+					// no answers => white
+					fillColor = "white";
+				} else if (answeredCount < totalQ) {
+					// partial => orange
+					fillColor = "orange";
+				} else {
+					// all answered => green
+					fillColor = "green";
+				}
+				clickable = true; // user can open doc
+			}
+
 			const statusIconEl = itemEl.createEl("span", { cls: "status-icon" });
 			statusIconEl.style.marginLeft = "0.5em";
 
-			// Determine icon color based on docState
-		let fillColor = "gray";
-		const docState = plugin.testDocuments[note.filePath];
-		if (docState) {
-			const totalQuestions = docState.questions.length;
-			const allAnswers = Object.values(docState.answers || {});
-			// Count how many are non-blank
-			const answeredCount = allAnswers.filter(ans => ans.trim().length > 0).length;
-
-			if (answeredCount === 0) {
-				// tests generated, no answers
-				fillColor = "white";
-			} else if (answeredCount < totalQuestions) {
-				// partial
-				fillColor = "orange";
+			if (!clickable) {
+				// Gray icon, no tests => not a button
+				statusIconEl.innerHTML = `
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="${fillColor}" class="bi bi-file-text" viewBox="0 0 16 16">
+  <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5.5L9.5 0H4z"/>
+  <path d="M9.5 0v4a1 1 0 0 0 1 1h4"/>
+  <path d="M4.5 7a.5.5 0 0 1 .5.5v.5h5v-1h-5V7.5a.5.5 0 0 1 .5-.5z"/>
+</svg>`;
 			} else {
-				// all answered
-				fillColor = "green";
-			}
-		}
-
-		statusIconEl.innerHTML = `
-<button class="view-tests-icon" title="View/Generate Tests">
+				// White/orange/green => clickable <button>
+				statusIconEl.innerHTML = `
+<button class="view-tests-icon" title="Open Test Document">
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="${fillColor}" class="bi bi-file-text" viewBox="0 0 16 16">
     <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5.5L9.5 0H4z"/>
     <path d="M9.5 0v4a1 1 0 0 0 1 1h4"/>
     <path d="M4.5 7a.5.5 0 0 1 .5.5v.5h5v-1h-5V7.5a.5.5 0 0 1 .5-.5z"/>
   </svg>
-</button>
-`;
+</button>`;
+				const iconBtn = statusIconEl.querySelector("button.view-tests-icon") as HTMLButtonElement;
+				iconBtn.addEventListener("click", () => {
+					plugin.openQuestionDoc(note.filePath);
+				});
+			}
 
 			checkbox.addEventListener("change", () => {
 				this.updateCreateTestsButtonState(createTestsButton, listEl);
-			});
-
-			// Make the icon clickable to open the doc if it exists
-			const iconBtn = statusIconEl.querySelector("button.view-tests-icon") as HTMLButtonElement;
-			iconBtn.addEventListener("click", () => {
-				// If doc doesn't exist, user needs to generate tests first
-				if (!plugin.testDocuments[note.filePath]) {
-					new Notice("No tests found. Generate them first or check your selection.");
-				} else {
-					plugin.openQuestionDoc(note.filePath);
-				}
 			});
 		});
 		this.updateCreateTestsButtonState(createTestsButton, listEl);
@@ -124,75 +131,91 @@ export default class TestDashboardView extends ItemView {
 		button.disabled = !anyChecked;
 	}
 
+	/**
+	 * For each selected note, sends an OpenAI request to generate tests CONCURRENTLY,
+	 * instead of waiting for each request to finish before starting the next.
+	 */
 	async createTests(): Promise<void> {
 		const plugin = (this.app as any).plugins.plugins["obsidian-rag-test-plugin"];
 		if (!plugin) {
 			new Notice("❌ RAG Test Plugin not found.");
 			return;
 		}
-
 		const apiKey = plugin.settings?.apiKey;
 		if (!apiKey) {
 			new Notice("❌ OpenAI API Key is missing! Please set it in the plugin settings.");
 			return;
 		}
 
+		// Gather all selected checkboxes
 		const container = this.containerEl;
 		const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+		const tasks: Promise<void>[] = []; // We'll store each note's "test generation" promise here
+
 		for (const checkbox of Array.from(checkboxes)) {
 			const input = checkbox as HTMLInputElement;
 			if (input.checked) {
 				const filePath = input.dataset.filePath;
 				const note = this.pluginData.find((n) => n.filePath === filePath);
 				if (!note) continue;
-				console.log(`Generating tests for: ${filePath}`);
+
+				console.log(`Preparing to generate tests concurrently for: ${filePath}`);
 
 				const listItem = input.parentElement;
 				const statusIconEl = listItem?.querySelector(".status-icon");
 				if (statusIconEl) {
 					statusIconEl.innerHTML = `<div class="spinner"></div>`;
 				}
-				try {
-					const response = await generateTestQuestions([note], apiKey);
-					console.log(`Generated tests for ${filePath}`, response);
 
-					plugin.testDocuments[filePath] = {
-						description: response.description,
-						questions: response.questions,
-						answers: {}
-					};
-					await plugin.saveSettings();
-					console.log("createTests: Saved test doc under path:", filePath);
+				// Create an async task for *this* file
+				const task = (async () => {
+					try {
+						const response = await generateTestQuestions([note], apiKey);
+						console.log(`Generated tests for ${filePath}`, response);
 
-					if (statusIconEl) {
-						// tests created, but no answers => icon is a white file
-						statusIconEl.innerHTML = `
-<button class="view-tests-icon" title="View Generated Tests">
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-file-text" viewBox="0 0 16 16">
-    <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5.5L9.5 0H4z"/>
-    <path d="M9.5 0v4a1 1 0 0 0 1 1h4"/>
-    <path d="M4.5 7a.5.5 0 0 1 .5.5v.5h5v-1h-5V7.5a.5.5 0 0 1 .5-.5z"/>
-  </svg>
-</button>
-`;
+						plugin.testDocuments[filePath] = {
+							description: response.description,
+							questions: response.questions,
+							answers: {}
+						};
+						await plugin.saveSettings();
+						console.log("createTests (concurrent): Saved test doc under path:", filePath);
 
-						const iconBtn = statusIconEl.querySelector("button.view-tests-icon") as HTMLButtonElement;
-						iconBtn.addEventListener("click", () => {
-							plugin.openQuestionDoc(filePath);
-						});
+						if (statusIconEl) {
+							// By default, no answers => white
+							statusIconEl.innerHTML = `
+	<button class="view-tests-icon" title="Open Test Document">
+	<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-file-text" viewBox="0 0 16 16">
+		<path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5.5L9.5 0H4z"/>
+		<path d="M9.5 0v4a1 1 0 0 0 1 1h4"/>
+		<path d="M4.5 7a.5.5 0 0 1 .5.5v.5h5v-1h-5V7.5a.5.5 0 0 1 .5-.5z"/>
+	</svg>
+	</button>
+	`;
+							const iconBtn = statusIconEl.querySelector("button.view-tests-icon") as HTMLButtonElement;
+							iconBtn.addEventListener("click", () => {
+								plugin.openQuestionDoc(filePath);
+							});
+						}
+					} catch (error) {
+						console.error(`Error generating tests for ${filePath}`, error);
+						if (statusIconEl) {
+							statusIconEl.innerHTML = `
+	<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="gray" class="bi bi-file-text" viewBox="0 0 16 16">
+	<path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5.5L9.5 0H4z"/>
+	<path d="M9.5 0v4a1 1 0 0 0 1 1h4"/>
+	<path d="M4.5 7a.5.5 0 0 1 .5.5v.5h5v-1h-5V7.5a.5.5 0 0 1 .5-.5z"/>
+	</svg>`;
+						}
 					}
-				} catch (error) {
-					console.error(`Error generating tests for ${filePath}`, error);
-					if (statusIconEl) {
-						statusIconEl.innerHTML = `
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="gray" class="bi bi-file-text" viewBox="0 0 16 16">
-  <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5.5L9.5 0H4z"/>
-  <path d="M9.5 0v4a1 1 0 0 0 1 1h4"/>
-  <path d="M4.5 7a.5.5 0 0 1 .5.5v.5h5v-1h-5V7.5a.5.5 0 0 1 .5-.5z"/>
-</svg>`;
-					}
-				}
+				})(); // immediately invoke
+
+				tasks.push(task);
 			}
 		}
+
+		// Now wait for all tasks concurrently with Promise.all
+		await Promise.all(tasks);
+		console.log("All concurrent test generation tasks finished!");
 	}
 }

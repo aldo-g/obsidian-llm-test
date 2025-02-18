@@ -55,12 +55,15 @@ export default class MyPlugin extends Plugin {
 		console.log("onload: Loaded settings:", this.settings);
 		console.log("onload: Loaded testDocuments keys:", Object.keys(this.testDocuments));
 
-		// Register the dashboard and question doc views
-		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes));
-		this.registerView(QUESTION_VIEW_TYPE, (leaf) => new QuestionDocumentView(leaf, this.app, this, {
-			description: "",
-			questions: []
-		}));
+		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) =>
+			new TestDashboardView(leaf, this.app, this.indexedNotes)
+		);
+		this.registerView(QUESTION_VIEW_TYPE, (leaf) =>
+			new QuestionDocumentView(leaf, this.app, this, {
+				description: "",
+				questions: []
+			})
+		);
 
 		this.addRibbonIcon("dice", "Test Dashboard", () => this.openTestDashboard());
 		this.addStatusBarItem().setText("RAG Test Plugin Active");
@@ -75,7 +78,7 @@ export default class MyPlugin extends Plugin {
 
 		this.addSettingTab(new SettingsTab(this.app, this));
 
-		// Interval log for debugging
+		// Example interval log
 		this.registerInterval(window.setInterval(() => console.log("Interval log"), 5 * 60 * 1000));
 	}
 
@@ -148,7 +151,8 @@ export default class MyPlugin extends Plugin {
 	}
 
 	/**
-	 * Called after a user typed an answer. Refreshes the dashboard so it can update icon color.
+	 * Called after user typed an answer in the question doc.
+	 * Refreshes the dashboard so it can recolor the icon.
 	 */
 	public markFileAnswered(filePath: string): void {
 		console.log(`File marked as answered: ${filePath}`);
