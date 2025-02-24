@@ -1,15 +1,7 @@
-/*
-Main plugin file for the Obsidian RAG Test Plugin.
-Registers a ribbon icon that opens a dashboard view,
-registers both the dashboard and a full‑screen question document view,
-handles indexing of notes, persists settings (including test document state),
-and tracks test documents across sessions.
-*/
-
-import { App, Notice, Plugin } from "obsidian";
-import TestDashboardView, { VIEW_TYPE as DASHBOARD_VIEW_TYPE } from "./src/components/TestDashboardView";
-import QuestionDocumentView, { QUESTION_VIEW_TYPE } from "./src/components/QuestionDocumentView";
-import SettingsTab from "./src/components/SettingsTab";
+import { Notice, Plugin } from "obsidian";
+import TestDashboardView, { VIEW_TYPE as DASHBOARD_VIEW_TYPE } from "./src/ui/DashboardView";
+import QuestionDocumentView, { QUESTION_VIEW_TYPE } from "./src/ui/QuestionView";
+import SettingsTab from "./src/ui/SettingsTab";
 
 export interface TestStatus {
 	testsReady: boolean;
@@ -37,6 +29,7 @@ export interface TestDocumentState {
 	description: string;
 	questions: { question: string }[];
 	answers: { [key: number]: string };
+	score?: number;
 }
 
 interface MyPluginData {
@@ -52,22 +45,10 @@ export default class MyPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-		console.log("onload: Loaded settings:", this.settings);
-		console.log("onload: Loaded testDocuments keys:", Object.keys(this.testDocuments));
-
-		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) =>
-			new TestDashboardView(leaf, this.app, this.indexedNotes)
-		);
-		this.registerView(QUESTION_VIEW_TYPE, (leaf) =>
-			new QuestionDocumentView(leaf, this.app, this, {
-				description: "",
-				questions: []
-			})
-		);
-
+		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes));
+		this.registerView(QUESTION_VIEW_TYPE, (leaf) => new QuestionDocumentView(leaf, this.app, this, { description: "", questions: [] }));
 		this.addRibbonIcon("dice", "Test Dashboard", () => this.openTestDashboard());
 		this.addStatusBarItem().setText("RAG Test Plugin Active");
-
 		this.addCommand({
 			id: "open-test-dashboard",
 			name: "Open Test Dashboard",
@@ -75,11 +56,8 @@ export default class MyPlugin extends Plugin {
 				this.openTestDashboard();
 			},
 		});
-
 		this.addSettingTab(new SettingsTab(this.app, this));
-
-		// Example interval log
-		this.registerInterval(window.setInterval(() => console.log("Interval log"), 5 * 60 * 1000));
+		this.registerInterval(window.setInterval(() => {}, 5 * 60 * 1000));
 	}
 
 	onunload() {
@@ -93,12 +71,10 @@ export default class MyPlugin extends Plugin {
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, data.settings);
 			this.indexedNotes = data.persistedIndex || [];
 			this.testDocuments = data.testDocuments || {};
-			console.log("loadSettings: data loaded. testDocuments keys:", Object.keys(this.testDocuments));
 		} else {
 			this.settings = DEFAULT_SETTINGS;
 			this.indexedNotes = [];
 			this.testDocuments = {};
-			console.log("loadSettings: no data found, using defaults");
 		}
 	}
 
@@ -109,7 +85,6 @@ export default class MyPlugin extends Plugin {
 			testDocuments: this.testDocuments
 		};
 		await this.saveData(data);
-		console.log("saveSettings: data saved. testDocuments keys now:", Object.keys(this.testDocuments));
 	}
 
 	async indexTestNotes() {
@@ -130,7 +105,6 @@ export default class MyPlugin extends Plugin {
 			}
 			const testStatus = { testsReady, passed, total };
 			this.indexedNotes.push({ filePath: file.path, content, testStatus });
-			console.log(`Indexed: ${file.path}`);
 		}
 		await this.saveSettings();
 		new Notice(`Indexed ${this.indexedNotes.length} notes`);
@@ -143,60 +117,35 @@ export default class MyPlugin extends Plugin {
 			new Notice("Could not obtain workspace leaf.");
 			return;
 		}
-		leaf.setViewState({
-			type: DASHBOARD_VIEW_TYPE,
-			active: true
-		});
+		leaf.setViewState({ type: DASHBOARD_VIEW_TYPE, active: true });
 		this.app.workspace.revealLeaf(leaf);
 	}
 
-	/**
-	 * Called after user typed an answer in the question doc.
-	 * Refreshes the dashboard so it can recolor the icon.
-	 */
 	public markFileAnswered(filePath: string): void {
-		console.log(`File marked as answered: ${filePath}`);
 		const dashLeaf = this.app.workspace.getLeavesOfType("rag-test-view")[0];
-		if (dashLeaf && dashLeaf.view && dashLeaf.view.render) {
+		if (dashLeaf.view instanceof TestDashboardView) {
 			dashLeaf.view.render();
 		}
 	}
 
-	/**
-	 * Opens the question doc for the given filePath (which must exist in testDocuments).
-	 */
 	public openQuestionDoc(filePath: string): void {
-		console.log(`openQuestionDoc: attempting to open test document for ${filePath}`);
-		console.log("Available file paths in testDocuments are:", Object.keys(this.testDocuments));
-
 		if (!this.testDocuments[filePath]) {
 			new Notice("No tests found for this note. Generate tests first.");
 			return;
 		}
 		const response = this.testDocuments[filePath];
-
 		this.app.workspace.detachLeavesOfType(QUESTION_VIEW_TYPE);
 		const leaf = this.app.workspace.getLeaf("tab");
-
-		leaf.setViewState({
-			type: QUESTION_VIEW_TYPE,
-			active: true
-		});
+		leaf.setViewState({ type: QUESTION_VIEW_TYPE, active: true });
 		this.app.workspace.revealLeaf(leaf);
-
 		setTimeout(() => {
 			const view = leaf.view as QuestionDocumentView;
 			if (view) {
-				console.log(`openQuestionDoc: found question doc view for file: ${filePath}. Setting local props`);
 				view.filePath = filePath;
 				view.description = response.description;
 				view.generatedTests = response.questions;
 				view.answers = response.answers || {};
-
-				console.log("openQuestionDoc: calling render() with questions len=", view.generatedTests.length);
 				view.render();
-			} else {
-				console.log("openQuestionDoc: question doc view not available.");
 			}
 		}, 200);
 	}

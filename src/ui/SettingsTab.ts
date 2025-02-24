@@ -1,31 +1,12 @@
-/*
-This file implements the settings tab for the Obsidian RAG Test Plugin.
-It allows the user to configure plugin options, including setting the OpenAI API key.
-*/
-
 import { App, PluginSettingTab, Setting } from "obsidian";
-import type { IndexedNote } from "../models/types";
 import type MyPlugin from "../../main";
 
-/**
- * Settings tab for the RAG Test Plugin.
- */
 export default class SettingsTab extends PluginSettingTab {
 	plugin: MyPlugin;
-
-	/**
-	 * Constructs the settings tab.
-	 * @param app - The Obsidian application instance.
-	 * @param plugin - The main plugin instance.
-	 */
 	constructor(app: App, plugin: MyPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
-
-	/**
-	 * Renders the settings tab.
-	 */
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();

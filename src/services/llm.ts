@@ -1,9 +1,3 @@
-/*
-Services for LLM calls: 
-1) generateTestQuestions(...) 
-2) markTestAnswers(...) 
-*/
-
 import { formatNotesForLLM } from "./formatter";
 import type { IndexedNote } from "../models/types";
 
@@ -25,14 +19,6 @@ export interface LLMResponse {
 		total_tokens: number;
 	};
 }
-
-/**
- * The shape of the JSON returned for test questions:
- * {
- *   "description": string,
- *   "questions": [{ question: string }, ...]
- * }
- */
 export interface TestQuestionsResponse {
 	description: string;
 	questions: { question: string }[];
@@ -40,16 +26,7 @@ export interface TestQuestionsResponse {
 
 const API_URL = "https://api.openai.com/v1/chat/completions";
 
-/**
- * Sends formatted note data to OpenAI and retrieves test questions as JSON.
- * The response must have two keys:
- *   "description": string
- *   "questions": [{ question: string }, ...]
- */
-export async function generateTestQuestions(
-	indexedNotes: IndexedNote[],
-	apiKey: string
-): Promise<TestQuestionsResponse> {
+export async function generateTestQuestions(indexedNotes: IndexedNote[], apiKey: string): Promise<TestQuestionsResponse> {
 	if (!apiKey) {
 		throw new Error("Missing OpenAI API key! Please set it in the plugin settings.");
 	}
@@ -90,9 +67,6 @@ Do not include any additional text or markdown formatting.`
 		throw new Error("Invalid response from OpenAI");
 	}
 
-	console.log("Raw LLM output for questions:", output);
-
-	// Clean the JSON
 	let jsonString = output.trim();
 	if (jsonString.startsWith("```json")) {
 		jsonString = jsonString.slice(7).trim();
@@ -100,7 +74,6 @@ Do not include any additional text or markdown formatting.`
 	if (jsonString.endsWith("```")) {
 		jsonString = jsonString.slice(0, -3).trim();
 	}
-
 	const lastBrace = jsonString.lastIndexOf("}");
 	if (lastBrace !== -1) {
 		jsonString = jsonString.slice(0, lastBrace + 1);
@@ -108,34 +81,18 @@ Do not include any additional text or markdown formatting.`
 	if (!jsonString.endsWith("}")) {
 		jsonString += "}";
 	}
-
 	try {
 		const parsed: TestQuestionsResponse = JSON.parse(jsonString);
 		return parsed;
 	} catch (err) {
-		console.error("Error parsing JSON from LLM response:", err, "Cleaned JSON string:", jsonString);
 		throw new Error("Failed to parse JSON response from OpenAI");
 	}
 }
 
-/**
- * markTestAnswers sends your note content and question–answer pairs to the LLM,
- * returning a concise JSON array, e.g.:
- * [
- *   { "questionNumber": 1, "correct": true, "feedback": "..." },
- *   { "questionNumber": 2, "correct": false, "feedback": "..." },
- *   ...
- * ]
- */
-export async function markTestAnswers(
-	noteContent: string,
-	qnaPairs: { question: string; answer: string }[],
-	apiKey: string
-): Promise<Array<{ questionNumber: number; correct: boolean; feedback: string }>> {
+export async function markTestAnswers(noteContent: string, qnaPairs: { question: string; answer: string }[], apiKey: string): Promise<Array<{ questionNumber: number; correct: boolean; feedback: string }>> {
 	if (!apiKey) {
 		throw new Error("No API key provided for markTestAnswers.");
 	}
-
 	const systemMessage = `
 You are a helpful AI that grades user answers based on the provided source text. 
 Return your feedback ONLY as a JSON array, with each element containing:
@@ -181,24 +138,14 @@ If you cannot judge correctness, please set "correct": false and provide minimal
 	if (!feedback) {
 		throw new Error("No content returned by LLM for markTestAnswers.");
 	}
-
 	feedback = feedback.trim();
-	console.log("Raw LLM Marking Output:", feedback);
-
-	// Clean potential triple-backticks
 	if (feedback.startsWith("```")) {
 		feedback = feedback.replace(/^```[a-z]*\n?/, "").replace(/```$/, "").trim();
 	}
-
 	try {
-		const parsed = JSON.parse(feedback) as Array<{
-			questionNumber: number;
-			correct: boolean;
-			feedback: string;
-		}>;
+		const parsed = JSON.parse(feedback) as Array<{ questionNumber: number; correct: boolean; feedback: string }>;
 		return parsed;
 	} catch (err) {
-		console.error("Error parsing JSON from LLM marking response:", err, "Raw:", feedback);
 		throw new Error("Failed to parse LLM marking JSON output.");
 	}
 }
