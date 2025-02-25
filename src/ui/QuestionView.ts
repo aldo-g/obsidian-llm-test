@@ -9,8 +9,14 @@ export default class QuestionDocumentView extends ItemView {
   description: string;
   generatedTests: { question: string }[];
   filePath: string;
+
+  // Map index => user's typed answer.
   answers: { [key: number]: string } = {};
+
+  // For marking: each index => { correct: boolean; feedback: string } or null.
   markResults: Array<{ correct: boolean; feedback: string } | null> = [];
+
+  // Final summary string shown at the bottom after marking.
   scoreSummary = "";
 
   constructor(
@@ -27,49 +33,69 @@ export default class QuestionDocumentView extends ItemView {
     this.filePath = "";
   }
 
-  getViewType() { return QUESTION_VIEW_TYPE; }
-  getDisplayText() { return this.filePath ? `Test: ${this.filePath}` : "Generated Test Questions"; }
+  getViewType() {
+    return QUESTION_VIEW_TYPE;
+  }
 
-  async onOpen() { this.render(); }
+  getDisplayText() {
+    return this.filePath ? `Test: ${this.filePath}` : "Generated Test Questions";
+  }
+
+  async onOpen() {
+    this.render();
+  }
+
   async onClose() {}
 
+  /**
+   * Shows a spinner overlay during an async operation (e.g., marking).
+   */
   private showSpinner(): HTMLDivElement {
     const spinnerOverlay = this.containerEl.createDiv({ cls: "spinner-overlay" });
-    spinnerOverlay.innerHTML = `
-      <div class="spinner"></div>
-    `;
-    spinnerOverlay.style.position = "absolute";
-    spinnerOverlay.style.top = "0";
-    spinnerOverlay.style.left = "0";
-    spinnerOverlay.style.width = "100%";
-    spinnerOverlay.style.height = "100%";
-    spinnerOverlay.style.display = "flex";
-    spinnerOverlay.style.alignItems = "center";
-    spinnerOverlay.style.justifyContent = "center";
-    spinnerOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.3)";
+    spinnerOverlay.innerHTML = `<div class="spinner"></div>`;
+    Object.assign(spinnerOverlay.style, {
+      position: "absolute",
+      top: "0",
+      left: "0",
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(0, 0, 0, 0.3)",
+    });
 
     const spinnerEl = spinnerOverlay.querySelector(".spinner") as HTMLDivElement;
     if (spinnerEl) {
-      spinnerEl.style.width = "50px";
-      spinnerEl.style.height = "50px";
-      spinnerEl.style.border = "8px solid #ccc";
-      spinnerEl.style.borderTopColor = "#888";
-      spinnerEl.style.borderRadius = "50%";
-      spinnerEl.style.animation = "spin 1s linear infinite";
+      Object.assign(spinnerEl.style, {
+        width: "50px",
+        height: "50px",
+        border: "8px solid #ccc",
+        borderTopColor: "#888",
+        borderRadius: "50%",
+        animation: "spin 1s linear infinite",
+      });
     }
-
     return spinnerOverlay;
   }
 
+  /**
+   * Hides the spinner overlay.
+   */
   private hideSpinner(spinner: HTMLDivElement) {
     spinner.remove();
   }
 
+  /**
+   * Renders the questions, inputs, buttons, and current score summary.
+   */
   render(): void {
     const container = this.containerEl;
     container.empty();
-    container.style.overflowY = "auto";
-    container.style.maxHeight = "calc(100vh - 100px)";
+    Object.assign(container.style, {
+      overflowY: "auto",
+      maxHeight: "calc(100vh - 100px)",
+    });
 
     if (!this.generatedTests?.length) {
       container.createEl("p", { text: "No test questions available." });
@@ -77,10 +103,13 @@ export default class QuestionDocumentView extends ItemView {
     }
 
     const descEl = container.createEl("p", { text: this.description });
-    descEl.style.fontStyle = "italic";
-    descEl.style.marginBottom = "1em";
+    Object.assign(descEl.style, {
+      fontStyle: "italic",
+      marginBottom: "1em",
+    });
 
     const formEl = container.createEl("form");
+
     this.generatedTests.forEach((test, index) => {
       const questionDiv = formEl.createEl("div", { cls: "question-item" });
       questionDiv.style.marginBottom = "1em";
@@ -88,30 +117,31 @@ export default class QuestionDocumentView extends ItemView {
       const label = questionDiv.createEl("label", {
         text: `Q${index + 1}: ${test.question}`,
       });
-      label.style.display = "block";
-      label.style.fontWeight = "bold";
+      Object.assign(label.style, { display: "block", fontWeight: "bold" });
 
       const input = questionDiv.createEl("input", { type: "text" }) as HTMLInputElement;
+      Object.assign(input.style, {
+        width: "100%",
+        marginTop: "0.5em",
+      });
       input.placeholder = "Type your answer here";
-      input.style.width = "100%";
-      input.style.marginTop = "0.5em";
 
+      // Restore previously typed answer if any.
       if (this.answers[index]) {
         input.value = this.answers[index];
       }
 
-      let borderColor = "", feedbackColor = "", feedbackText = "";
+      // If there's a marking result => color + feedback
+      let borderColor = "";
+      let feedbackColor = "";
+      let feedbackText = "";
       const result = this.markResults[index];
       if (result) {
-        if (result.correct) {
-          borderColor = "green";
-          feedbackColor = "green";
-        } else {
-          borderColor = "red";
-          feedbackColor = "red";
-        }
+        borderColor = result.correct ? "green" : "red";
+        feedbackColor = borderColor;
         feedbackText = result.feedback;
       }
+
       if (borderColor) {
         input.style.border = `2px solid ${borderColor}`;
       }
@@ -122,9 +152,11 @@ export default class QuestionDocumentView extends ItemView {
       });
 
       const feedbackEl = questionDiv.createEl("p");
-      feedbackEl.style.marginTop = "0.25em";
-      feedbackEl.style.color = feedbackColor;
-      feedbackEl.style.fontWeight = feedbackText ? "bold" : "normal";
+      Object.assign(feedbackEl.style, {
+        marginTop: "0.25em",
+        color: feedbackColor,
+        fontWeight: feedbackText ? "bold" : "normal",
+      });
       feedbackEl.textContent = feedbackText;
     });
 
@@ -139,24 +171,33 @@ export default class QuestionDocumentView extends ItemView {
     resetButton.type = "button";
     resetButton.onclick = () => this.handleResetButtonClick();
 
-    formEl.appendChild(buttonRow);
-
+    // Score summary element
     const scoreEl = formEl.createEl("p", { text: this.scoreSummary });
     Object.assign(scoreEl.style, { marginTop: "1em", fontWeight: "bold" });
 
+    formEl.appendChild(buttonRow);
     container.appendChild(formEl);
   }
 
+  /**
+   * Called when user clicks "Mark". We'll:
+   *  1) Show spinner
+   *  2) Do the LLM marking
+   *  3) Sum marks from (1)/(2)/(3)
+   *  4) Store + show final result
+   */
   private async handleMarkButtonClick(): Promise<void> {
     if (!this.filePath) {
       new Notice("No file path found for this test document.");
       return;
     }
+
     const indexedNote = this.plugin.indexedNotes.find(n => n.filePath === this.filePath);
     if (!indexedNote) {
       new Notice("No indexed content found for this file. Cannot mark answers.");
       return;
     }
+
     const noteContent = indexedNote.content;
     const qnaPairs = this.generatedTests.map((test, idx) => ({
       question: test.question,
@@ -173,7 +214,9 @@ export default class QuestionDocumentView extends ItemView {
     new Notice("Marking in progress...");
 
     try {
+      // 1) Call the LLM
       const feedbackArray = await markTestAnswers(noteContent, qnaPairs, apiKey);
+      // 2) Set local markResults
       this.markResults = new Array(this.generatedTests.length).fill(null);
       feedbackArray.forEach(item => {
         const i = item.questionNumber - 1;
@@ -182,14 +225,35 @@ export default class QuestionDocumentView extends ItemView {
         }
       });
 
-      let correctCount = 0;
-      for (const r of this.markResults) {
-        if (r?.correct) correctCount++;
-      }
-      const total = this.generatedTests.length;
-      const pct = ((correctCount / total) * 100).toFixed(1);
-      this.scoreSummary = `You scored ${pct}% (${correctCount} / ${total} correct)`;
+      // 3) Summation: parse how many marks from (X) at the end
+      let totalPossibleMarks = 0;
+      let totalEarnedMarks = 0;
 
+      for (let i = 0; i < this.generatedTests.length; i++) {
+        const qText = this.generatedTests[i].question;
+        const match = qText.match(/\((\d)\)\s*$/); // e.g. "What is... (3)"
+        let questionMarks = 1;
+        if (match) {
+          const parsedVal = parseInt(match[1], 10);
+          if ([1, 2, 3].includes(parsedVal)) {
+            questionMarks = parsedVal;
+          }
+        }
+        totalPossibleMarks += questionMarks;
+
+        // If correct => add questionMarks
+        if (this.markResults[i]?.correct) {
+          totalEarnedMarks += questionMarks;
+        }
+      }
+
+      const percentage = totalPossibleMarks
+        ? ((totalEarnedMarks / totalPossibleMarks) * 100).toFixed(1)
+        : "0.0";
+
+      this.scoreSummary = `You scored ${totalEarnedMarks} / ${totalPossibleMarks} marks (${percentage}%)`;
+
+      // 4) Store in plugin doc => triggers the dashboard to show final % icon
       if (!this.plugin.testDocuments[this.filePath]) {
         this.plugin.testDocuments[this.filePath] = {
           description: this.description,
@@ -197,33 +261,35 @@ export default class QuestionDocumentView extends ItemView {
           answers: {}
         };
       }
-      this.plugin.testDocuments[this.filePath].score = parseFloat(pct);
+      this.plugin.testDocuments[this.filePath].score = parseFloat(percentage);
       await this.plugin.saveSettings();
-
       this.plugin.markFileAnswered(this.filePath);
 
       this.render();
-
       new Notice("Marking complete!");
     } catch (err) {
+      console.error("Error marking answers:", err);
       new Notice("Error marking answers. Check console for details.");
-      console.error(err);
     } finally {
       this.hideSpinner(spinnerOverlay);
     }
   }
 
+  /**
+   * Clears all user answers, feedback, and final score. Reverts doc to unmarked.
+   */
   private handleResetButtonClick(): void {
     this.answers = {};
     this.markResults = [];
     this.scoreSummary = "";
-    if (!this.filePath) return;
 
+    if (!this.filePath) return;
+    // Ensure doc state exists
     if (!this.plugin.testDocuments[this.filePath]) {
       this.plugin.testDocuments[this.filePath] = {
         description: this.description,
         questions: this.generatedTests,
-        answers: {}
+        answers: {},
       };
     } else {
       this.plugin.testDocuments[this.filePath].answers = {};
@@ -231,16 +297,20 @@ export default class QuestionDocumentView extends ItemView {
     delete this.plugin.testDocuments[this.filePath].score;
     this.plugin.saveSettings();
     this.plugin.markFileAnswered(this.filePath);
+
     this.render();
   }
 
+  /**
+   * Saves typed answers into plugin state so they're reloaded next time user opens.
+   */
   saveAnswers(): void {
     if (!this.filePath) return;
     if (!this.plugin.testDocuments[this.filePath]) {
       this.plugin.testDocuments[this.filePath] = {
         description: this.description,
         questions: this.generatedTests,
-        answers: {}
+        answers: {},
       };
     }
     this.plugin.testDocuments[this.filePath].answers = this.answers;
