@@ -42,8 +42,12 @@ export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
 	indexedNotes: IndexedNote[] = [];
 	testDocuments: { [filePath: string]: TestDocumentState } = {};
+    stylesLoaded = false;
 
 	async onload() {
+        // Add plugin styles first
+        this.loadStyles();
+        
 		await this.loadSettings();
 		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes));
 		this.registerView(QUESTION_VIEW_TYPE, (leaf) => new QuestionDocumentView(leaf, this.app, this, { description: "", questions: [] }));
@@ -72,9 +76,214 @@ export default class MyPlugin extends Plugin {
 	}
 
 	onunload() {
+        // Remove the custom styles when plugin is disabled
+        const styleElement = document.getElementById("obsidian-test-question-styles");
+        if (styleElement) {
+            styleElement.remove();
+        }
+        
 		this.app.workspace.detachLeavesOfType(DASHBOARD_VIEW_TYPE);
 		this.app.workspace.detachLeavesOfType(QUESTION_VIEW_TYPE);
 	}
+
+    /**
+     * Loads the custom CSS styles needed for the question view
+     */
+    loadStyles() {
+        // Avoid adding duplicate styles
+        if (this.stylesLoaded || document.getElementById("obsidian-test-question-styles")) {
+            return;
+        }
+
+        // Create style element and add it to the document head
+        const styleElement = document.createElement('style');
+        styleElement.id = "obsidian-test-question-styles";
+        styleElement.textContent = `
+/* Test Question View Styles */
+.test-document-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: var(--font-text, inherit);
+}
+
+.test-description {
+  font-style: italic;
+  margin-bottom: 2em;
+  color: var(--text-muted);
+  border-left: 3px solid var(--interactive-accent);
+  padding-left: 10px;
+  line-height: 1.5;
+}
+
+.question-item {
+  margin-bottom: 2em;
+  padding: 16px;
+  border-radius: 8px;
+  background-color: var(--background-secondary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.question-item:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.question-label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 0.8em;
+  font-size: 1.1em;
+}
+
+.question-number {
+  display: inline-block;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  border-radius: 50%;
+  margin-right: 8px;
+  font-size: 0.9em;
+  line-height: 24px;
+}
+
+.answer-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  font-family: inherit;
+  transition: border 0.2s ease;
+}
+
+.answer-input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+}
+
+.answer-input.correct {
+  border: 2px solid #4caf50;
+  background-color: rgba(76, 175, 80, 0.05);
+}
+
+.answer-input.incorrect {
+  border: 2px solid #f44336;
+  background-color: rgba(244, 67, 54, 0.05);
+}
+
+.feedback {
+  margin-top: 0.5em;
+  font-weight: 500;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 0.9em;
+  display: none;
+}
+
+.feedback.visible {
+  display: block;
+}
+
+.feedback.correct {
+  color: #2e7d32;
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.feedback.incorrect {
+  color: #c62828;
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+.test-document-actions {
+  margin-top: 2em;
+  display: flex;
+  justify-content: center;
+  gap: 1em;
+}
+
+.test-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  border: none;
+  font-size: 14px;
+}
+
+.test-button:hover {
+  transform: translateY(-1px);
+}
+
+.test-button:active {
+  transform: translateY(1px);
+}
+
+.mark-button {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.mark-button:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.reset-button {
+  background-color: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.reset-button:hover {
+  background-color: var(--background-modifier-border-hover);
+}
+
+.score-summary {
+  margin-top: 2em;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  text-align: center;
+  font-size: 1.1em;
+  background-color: var(--background-primary-alt);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.spinner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 6px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--interactive-accent);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+`;
+
+        document.head.appendChild(styleElement);
+        this.stylesLoaded = true;
+    }
 
 	async loadSettings() {
 		const data = (await this.loadData()) as MyPluginData | null;

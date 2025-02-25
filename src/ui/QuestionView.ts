@@ -45,37 +45,16 @@ export default class QuestionDocumentView extends ItemView {
     this.render();
   }
 
-  async onClose() {}
+  async onClose() {
+    // Cleanup if needed
+  }
 
   /**
    * Shows a spinner overlay during an async operation (e.g., marking).
    */
   private showSpinner(): HTMLDivElement {
     const spinnerOverlay = this.containerEl.createDiv({ cls: "spinner-overlay" });
-    spinnerOverlay.innerHTML = `<div class="spinner"></div>`;
-    Object.assign(spinnerOverlay.style, {
-      position: "absolute",
-      top: "0",
-      left: "0",
-      width: "100%",
-      height: "100%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "rgba(0, 0, 0, 0.3)",
-    });
-
-    const spinnerEl = spinnerOverlay.querySelector(".spinner") as HTMLDivElement;
-    if (spinnerEl) {
-      Object.assign(spinnerEl.style, {
-        width: "50px",
-        height: "50px",
-        border: "8px solid #ccc",
-        borderTopColor: "#888",
-        borderRadius: "50%",
-        animation: "spin 1s linear infinite",
-      });
-    }
+    spinnerOverlay.createDiv({ cls: "spinner" });
     return spinnerOverlay;
   }
 
@@ -92,90 +71,96 @@ export default class QuestionDocumentView extends ItemView {
   render(): void {
     const container = this.containerEl;
     container.empty();
-    Object.assign(container.style, {
-      overflowY: "auto",
-      maxHeight: "calc(100vh - 100px)",
-    });
+    
+    // Apply the container class for styling
+    container.addClass("test-document-container");
 
     if (!this.generatedTests?.length) {
       container.createEl("p", { text: "No test questions available." });
       return;
     }
 
-    const descEl = container.createEl("p", { text: this.description });
-    Object.assign(descEl.style, {
-      fontStyle: "italic",
-      marginBottom: "1em",
+    // Test description with proper styling
+    const descEl = container.createEl("p", { 
+      text: this.description,
+      cls: "test-description" 
     });
 
     const formEl = container.createEl("form");
 
+    // Create each question with new styling
     this.generatedTests.forEach((test, index) => {
       const questionDiv = formEl.createEl("div", { cls: "question-item" });
-      questionDiv.style.marginBottom = "1em";
+      
+      // Question label with number badge
+      const label = questionDiv.createEl("label", { cls: "question-label" });
+      
+      // Add number badge
+      const numberBadge = label.createSpan({ cls: "question-number", text: `${index + 1}` });
+      
+      // Add the question text (without the Q# prefix, since we have the badge)
+      label.createSpan({ text: test.question });
 
-      const label = questionDiv.createEl("label", {
-        text: `Q${index + 1}: ${test.question}`,
-      });
-      Object.assign(label.style, { display: "block", fontWeight: "bold" });
+      // Styled answer input
+      const input = questionDiv.createEl("input", { 
+        type: "text",
+        cls: "answer-input",
+        attr: { placeholder: "Type your answer here" }
+      }) as HTMLInputElement;
 
-      const input = questionDiv.createEl("input", { type: "text" }) as HTMLInputElement;
-      Object.assign(input.style, {
-        width: "100%",
-        marginTop: "0.5em",
-      });
-      input.placeholder = "Type your answer here";
-
-      // Restore previously typed answer if any.
+      // Restore previously typed answer
       if (this.answers[index]) {
         input.value = this.answers[index];
       }
 
-      // If there's a marking result => color + feedback
-      let borderColor = "";
-      let feedbackColor = "";
-      let feedbackText = "";
+      // Apply styling for marking results
       const result = this.markResults[index];
       if (result) {
-        borderColor = result.correct ? "green" : "red";
-        feedbackColor = borderColor;
-        feedbackText = result.feedback;
+        input.addClass(result.correct ? "correct" : "incorrect");
       }
 
-      if (borderColor) {
-        input.style.border = `2px solid ${borderColor}`;
-      }
-
+      // Input change handler
       input.addEventListener("input", () => {
         this.answers[index] = input.value;
         this.saveAnswers();
       });
 
-      const feedbackEl = questionDiv.createEl("p");
-      Object.assign(feedbackEl.style, {
-        marginTop: "0.25em",
-        color: feedbackColor,
-        fontWeight: feedbackText ? "bold" : "normal",
-      });
-      feedbackEl.textContent = feedbackText;
+      // Feedback element with proper styling
+      const feedbackEl = questionDiv.createEl("p", { cls: "feedback" });
+      if (result) {
+        feedbackEl.addClass(result.correct ? "correct" : "incorrect");
+        feedbackEl.addClass("visible");
+        feedbackEl.textContent = result.feedback;
+      }
     });
 
+    // Styled button row
     const buttonRow = formEl.createEl("div", { cls: "test-document-actions" });
-    Object.assign(buttonRow.style, { marginTop: "1em", display: "flex", gap: "1em" });
 
-    const markButton = buttonRow.createEl("button", { text: "Mark" });
+    // Mark button with styling
+    const markButton = buttonRow.createEl("button", { 
+      text: "Mark",
+      cls: "test-button mark-button" 
+    });
     markButton.type = "button";
     markButton.onclick = () => this.handleMarkButtonClick();
 
-    const resetButton = buttonRow.createEl("button", { text: "Reset" });
+    // Reset button with styling
+    const resetButton = buttonRow.createEl("button", { 
+      text: "Reset",
+      cls: "test-button reset-button" 
+    });
     resetButton.type = "button";
     resetButton.onclick = () => this.handleResetButtonClick();
 
-    // Score summary element
-    const scoreEl = formEl.createEl("p", { text: this.scoreSummary });
-    Object.assign(scoreEl.style, { marginTop: "1em", fontWeight: "bold" });
+    // Only show score summary if we have one
+    if (this.scoreSummary) {
+      const scoreEl = formEl.createEl("div", { 
+        text: this.scoreSummary,
+        cls: "score-summary" 
+      });
+    }
 
-    formEl.appendChild(buttonRow);
     container.appendChild(formEl);
   }
 
