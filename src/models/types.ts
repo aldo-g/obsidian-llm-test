@@ -1,9 +1,3 @@
-// src/models/types.ts
-
-/**
- * If you want to differentiate 1-mark, 2-mark, and 3-mark questions,
- * you can define the question type as "short" | "long" | "extended".
- */
 export interface GeneratedTest {
 	/**
 	 * The question text. For example:

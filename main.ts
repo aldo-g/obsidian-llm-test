@@ -45,31 +45,29 @@ export default class MyPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-
-		this.registerView(DASHBOARD_VIEW_TYPE, leaf => 
-			new TestDashboardView(leaf, this.app, this.indexedNotes)
-		);
-		this.registerView(QUESTION_VIEW_TYPE, leaf =>
-			new QuestionDocumentView(leaf, this.app, this, {
-				description: "",
-				questions: []
-			})
-		);
-
+		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes));
+		this.registerView(QUESTION_VIEW_TYPE, (leaf) => new QuestionDocumentView(leaf, this.app, this, { description: "", questions: [] }));
+		
 		this.addRibbonIcon("dice", "Test Dashboard", () => this.openTestDashboard());
+		
+		// 🔄 Add a refresh button to the sidebar
+		this.addRibbonIcon("refresh-cw", "Refresh Test Index", async () => {
+			new Notice("🔄 Refreshing test index...");
+			await this.indexTestNotes();
+			new Notice("✅ Test index refreshed!");
+		});
+	
 		this.addStatusBarItem().setText("RAG Test Plugin Active");
-
+		
 		this.addCommand({
 			id: "open-test-dashboard",
 			name: "Open Test Dashboard",
 			callback: () => {
 				this.openTestDashboard();
-			}
+			},
 		});
-
+	
 		this.addSettingTab(new SettingsTab(this.app, this));
-
-		// Example interval
 		this.registerInterval(window.setInterval(() => {}, 5 * 60 * 1000));
 	}
 
@@ -106,31 +104,34 @@ export default class MyPlugin extends Plugin {
 	 */
 	async indexTestNotes() {
 		this.indexedNotes = [];
-
-		const markdownFiles = this.app.vault.getMarkdownFiles();
+		console.log("🔍 Discovering files...");
+	
+		const markdownFiles = this.app.vault.getFiles();
+		console.log(`📂 Found ${markdownFiles.length} markdown files.`);
+	
 		for (const file of markdownFiles) {
+			if (!file.path.endsWith(".md")) continue;
+	
+			console.log(`📄 Indexing file: ${file.path}`);
 			const content = await this.app.vault.read(file);
-
-			let total = 0;
-			let passed = 0;
-			const checklistRegex = /- \[( |x)\]/g;
-			let match: RegExpExecArray | null;
-			while ((match = checklistRegex.exec(content)) !== null) {
-				total++;
-				if (match[1] === "x") {
-					passed++;
-				}
-			}
-			const testsReady = total > 0;
-
+			
 			this.indexedNotes.push({
 				filePath: file.path,
 				content,
-				testStatus: { testsReady, passed, total }
+				testStatus: { testsReady: true, passed: 0, total: 0 }
 			});
 		}
-
+	
 		await this.saveSettings();
+	
+		// ✅ Force Test View to refresh
+		const dashLeaf = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE)[0];
+		if (dashLeaf?.view instanceof TestDashboardView) {
+			dashLeaf.view.pluginData = this.indexedNotes;
+			dashLeaf.view.render();
+		}
+	
+		console.log(`✅ Indexed ${this.indexedNotes.length} notes.`);
 		new Notice(`Indexed ${this.indexedNotes.length} notes`);
 	}
 
