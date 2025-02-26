@@ -49,20 +49,16 @@ export default class MyPlugin extends Plugin {
         this.loadStyles();
         
 		await this.loadSettings();
-		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes));
+		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes, this));
 		this.registerView(QUESTION_VIEW_TYPE, (leaf) => new QuestionDocumentView(leaf, this.app, this, { description: "", questions: [] }));
 		
-		this.addRibbonIcon("dice", "Test Dashboard", () => this.openTestDashboard());
+		// Add Test Dashboard button to ribbon
+		this.addRibbonIcon("flask-conical", "Test Dashboard", () => this.openTestDashboard());
 		
-		// 🔄 Add a refresh button to the sidebar
-		this.addRibbonIcon("refresh-cw", "Refresh Test Index", async () => {
-			new Notice("🔄 Refreshing test index...");
-			await this.indexTestNotes();
-			new Notice("✅ Test index refreshed!");
-		});
-	
+		// Add status bar item
 		this.addStatusBarItem().setText("RAG Test Plugin Active");
 		
+		// Add Test Dashboard command
 		this.addCommand({
 			id: "open-test-dashboard",
 			name: "Open Test Dashboard",
@@ -77,7 +73,7 @@ export default class MyPlugin extends Plugin {
 
 	onunload() {
         // Remove the custom styles when plugin is disabled
-        const styleElement = document.getElementById("obsidian-test-question-styles");
+        const styleElement = document.getElementById("obsidian-test-plugin-styles");
         if (styleElement) {
             styleElement.remove();
         }
@@ -87,19 +83,20 @@ export default class MyPlugin extends Plugin {
 	}
 
     /**
-     * Loads the custom CSS styles needed for the question view
+     * Loads the custom CSS styles needed for the test views
      */
     loadStyles() {
         // Avoid adding duplicate styles
-        if (this.stylesLoaded || document.getElementById("obsidian-test-question-styles")) {
+        if (this.stylesLoaded || document.getElementById("obsidian-test-plugin-styles")) {
             return;
         }
 
         // Create style element and add it to the document head
         const styleElement = document.createElement('style');
-        styleElement.id = "obsidian-test-question-styles";
+        styleElement.id = "obsidian-test-plugin-styles";
         styleElement.textContent = `
-/* Test Question View Styles */
+/* Common Styles for Test Plugin */
+.test-dashboard-container,
 .test-document-container {
   max-width: 800px;
   margin: 0 auto;
@@ -107,6 +104,194 @@ export default class MyPlugin extends Plugin {
   font-family: var(--font-text, inherit);
 }
 
+/* Dashboard Specific Styles */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.dashboard-title {
+  margin: 0;
+  font-size: 1.5em;
+  font-weight: bold;
+  color: var(--text-normal);
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  background-color: var(--background-secondary);
+  transition: background-color 0.2s ease;
+}
+
+.file-item:hover {
+  background-color: var(--background-secondary-alt);
+}
+
+.file-checkbox {
+  margin-right: 10px;
+}
+
+.file-path {
+  flex: 1;
+  margin-right: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-icon button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.status-icon button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-on-accent);
+  min-width: 60px;
+  transition: all 0.2s ease;
+}
+
+.status-badge.none {
+  background-color: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.status-badge.in-progress {
+  background-color: #f59e0b; /* Amber color */
+  color: #fff;
+}
+
+.status-badge.partial {
+  background: linear-gradient(90deg, #f59e0b 50%, #84cc16 50%);
+  color: #fff;
+}
+
+.status-badge.complete {
+  background-color: #22c55e; /* Green color */
+  color: #fff;
+}
+
+.badge-icon {
+  margin-right: 6px;
+}
+
+.progress-ring {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  margin-right: 6px;
+}
+
+.progress-ring-circle {
+  stroke: var(--background-primary);
+  stroke-width: 2;
+  fill: transparent;
+}
+
+.progress-ring-progress {
+  stroke-linecap: round;
+  stroke-width: 2;
+  fill: transparent;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.dashboard-button,
+.test-button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  border: none;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-button:hover,
+.test-button:hover {
+  transform: translateY(-1px);
+}
+
+.dashboard-button:active,
+.test-button:active {
+  transform: translateY(1px);
+}
+
+.dashboard-button.primary,
+.mark-button {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.dashboard-button.primary:hover,
+.mark-button:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.dashboard-button.secondary,
+.reset-button {
+  background-color: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.dashboard-button.secondary:hover,
+.reset-button:hover {
+  background-color: var(--background-modifier-border-hover);
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 3px solid rgba(var(--interactive-accent-rgb), 0.3);
+  border-radius: 50%;
+  border-top-color: var(--interactive-accent);
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+/* Question Document View Styles */
 .test-description {
   font-style: italic;
   margin-bottom: 2em;
@@ -157,6 +342,10 @@ export default class MyPlugin extends Plugin {
   background-color: var(--background-primary);
   font-family: inherit;
   transition: border 0.2s ease;
+  min-height: 60px; /* Minimum height for textarea */
+  resize: vertical; /* Allow vertical resizing */
+  line-height: 1.5; /* Better line spacing */
+  overflow-y: hidden; /* Hide scrollbar when auto-expanding */
 }
 
 .answer-input:focus {
@@ -205,42 +394,6 @@ export default class MyPlugin extends Plugin {
   gap: 1em;
 }
 
-.test-button {
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
-  border: none;
-  font-size: 14px;
-}
-
-.test-button:hover {
-  transform: translateY(-1px);
-}
-
-.test-button:active {
-  transform: translateY(1px);
-}
-
-.mark-button {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
-}
-
-.mark-button:hover {
-  background-color: var(--interactive-accent-hover);
-}
-
-.reset-button {
-  background-color: var(--background-modifier-border);
-  color: var(--text-normal);
-}
-
-.reset-button:hover {
-  background-color: var(--background-modifier-border-hover);
-}
-
 .score-summary {
   margin-top: 2em;
   padding: 12px;
@@ -266,19 +419,184 @@ export default class MyPlugin extends Plugin {
   backdrop-filter: blur(2px);
 }
 
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 6px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: var(--interactive-accent);
-  animation: spin 1s linear infinite;
-}
-
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+.error-message {
+  background-color: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-radius: 6px;
+  border: 1px solid #dc2626;
+  position: relative;
+}
+
+.error-message h3 {
+  margin: 0 0 8px 0;
+  color: #dc2626;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.error-message p {
+  margin: 0 0 8px 0;
+  font-size: 0.95em;
+}
+
+.error-message p:last-child {
+  margin-bottom: 0;
+}
+
+.error-message .suggestion {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(220, 38, 38, 0.3);
+  font-style: italic;
+}
+
+/* Partial mark styling */
+.answer-input.partial {
+  border: 2px solid #f59e0b; /* Amber color for partial marks */
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.feedback.partial {
+  color: #92400e; /* Darker amber for text */
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
+/* Marks display styling */
+.marks-display {
+  font-weight: 600;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.feedback.correct .marks-display {
+  background-color: rgba(76, 175, 80, 0.2);
+}
+
+.feedback.partial .marks-display {
+  background-color: rgba(245, 158, 11, 0.2);
+}
+
+.feedback.incorrect .marks-display {
+  background-color: rgba(244, 67, 54, 0.2);
+}
+
+.feedback-text {
+  margin-top: 4px;
+}
+
+.file-tree-container {
+  margin-top: 16px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  border-radius: 8px;
+  background-color: var(--background-secondary);
+}
+
+.file-tree {
+  padding: 8px 0;
+}
+
+.file-tree-item {
+  overflow: hidden;
+}
+
+.folder-row, 
+.file-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin: 2px 8px;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-row:hover,
+.file-row:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.folder-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.folder-toggle.expanded svg {
+  transform: rotate(0deg);
+}
+
+.folder-toggle.collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.folder-icon, 
+.file-icon {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+  color: var(--text-muted);
+}
+
+.folder-name, 
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-checkbox {
+  margin-right: 8px;
+}
+
+/* Make the status badges more compact for file tree view */
+.file-row .status-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  margin-left: 8px;
+  min-width: 50px;
+  display: flex;
+  align-items: center;
+}
+
+.file-row .badge-icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* Folder highlight when selected */
+.folder-row.active {
+  background-color: var(--background-modifier-active-hover);
+  font-weight: 600;
+}
+
+/* Smooth transitions for folder expand/collapse */
+.folder-children {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0.5; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 `;
 
         document.head.appendChild(styleElement);
@@ -342,6 +660,8 @@ export default class MyPlugin extends Plugin {
 	
 		console.log(`✅ Indexed ${this.indexedNotes.length} notes.`);
 		new Notice(`Indexed ${this.indexedNotes.length} notes`);
+        
+        return this.indexedNotes;
 	}
 
 	openTestDashboard() {

@@ -1,6 +1,6 @@
 import { App, ItemView, WorkspaceLeaf, Notice } from "obsidian";
 import type MyPlugin from "../../main";
-import { markTestAnswers } from "../services/llm";
+import { markTestAnswers, ContextLengthExceededError } from "../services/llm";
 
 export const QUESTION_VIEW_TYPE = "question-document-view";
 
@@ -13,8 +13,8 @@ export default class QuestionDocumentView extends ItemView {
   // Map index => user's typed answer.
   answers: { [key: number]: string } = {};
 
-  // For marking: each index => { correct: boolean; feedback: string } or null.
-  markResults: Array<{ correct: boolean; feedback: string } | null> = [];
+  // For marking: each index => { marks, maxMarks, feedback } or null.
+  markResults: Array<{ marks: number; maxMarks: number; feedback: string } | null> = [];
 
   // Final summary string shown at the bottom after marking.
   scoreSummary = "";
@@ -72,8 +72,12 @@ export default class QuestionDocumentView extends ItemView {
     const container = this.containerEl;
     container.empty();
     
-    // Apply the container class for styling
+    // Apply the container class for styling and ensure scrolling works
     container.addClass("test-document-container");
+    
+    // Ensure container has scrolling - this is critical!
+    container.style.overflowY = "auto";
+    container.style.maxHeight = "calc(100vh - 100px)";
 
     if (!this.generatedTests?.length) {
       container.createEl("p", { text: "No test questions available." });
@@ -87,6 +91,9 @@ export default class QuestionDocumentView extends ItemView {
     });
 
     const formEl = container.createEl("form");
+    
+    // Make sure the form doesn't interfere with container scrolling
+    formEl.style.overflowY = "visible";
 
     // Create each question with new styling
     this.generatedTests.forEach((test, index) => {
@@ -101,36 +108,77 @@ export default class QuestionDocumentView extends ItemView {
       // Add the question text (without the Q# prefix, since we have the badge)
       label.createSpan({ text: test.question });
 
-      // Styled answer input
-      const input = questionDiv.createEl("input", { 
-        type: "text",
+      // Styled answer input - CHANGED TO TEXTAREA
+      const textarea = questionDiv.createEl("textarea", { 
         cls: "answer-input",
-        attr: { placeholder: "Type your answer here" }
-      }) as HTMLInputElement;
+        attr: { 
+          placeholder: "Type your answer here",
+          rows: "3" // Start with 3 rows, will auto-expand if needed
+        }
+      }) as HTMLTextAreaElement;
 
       // Restore previously typed answer
       if (this.answers[index]) {
-        input.value = this.answers[index];
+        textarea.value = this.answers[index];
       }
 
       // Apply styling for marking results
       const result = this.markResults[index];
       if (result) {
-        input.addClass(result.correct ? "correct" : "incorrect");
+        // Determine styling based on marks received
+        const scorePercentage = (result.marks / result.maxMarks) * 100;
+        
+        if (scorePercentage >= 80) {
+          textarea.addClass("correct"); // Full or near-full marks
+        } else if (scorePercentage > 0) { 
+          textarea.addClass("partial"); // Partial marks
+        } else {
+          textarea.addClass("incorrect"); // No marks
+        }
       }
 
+      // Adjust textarea height based on content
+      const adjustTextareaHeight = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = (textarea.scrollHeight) + 'px';
+      };
+
+      // Run once initially
+      setTimeout(adjustTextareaHeight, 0);
+
       // Input change handler
-      input.addEventListener("input", () => {
-        this.answers[index] = input.value;
+      textarea.addEventListener("input", () => {
+        this.answers[index] = textarea.value;
         this.saveAnswers();
+        adjustTextareaHeight();
       });
 
       // Feedback element with proper styling
-      const feedbackEl = questionDiv.createEl("p", { cls: "feedback" });
+      const feedbackEl = questionDiv.createEl("div", { cls: "feedback" });
       if (result) {
-        feedbackEl.addClass(result.correct ? "correct" : "incorrect");
+        // Add mark indicator
+        const marksDisplay = feedbackEl.createEl("div", { 
+          cls: "marks-display",
+          text: `${result.marks}/${result.maxMarks} marks` 
+        });
+        
+        // Determine feedback class based on score
+        const scorePercentage = (result.marks / result.maxMarks) * 100;
+        if (scorePercentage >= 80) {
+          feedbackEl.addClass("correct");
+        } else if (scorePercentage > 0) {
+          feedbackEl.addClass("partial");
+        } else {
+          feedbackEl.addClass("incorrect");
+        }
+        
         feedbackEl.addClass("visible");
-        feedbackEl.textContent = result.feedback;
+        
+        // Feedback text
+        feedbackEl.createEl("div", { 
+          cls: "feedback-text",
+          text: result.feedback 
+        });
       }
     });
 
@@ -168,7 +216,7 @@ export default class QuestionDocumentView extends ItemView {
    * Called when user clicks "Mark". We'll:
    *  1) Show spinner
    *  2) Do the LLM marking
-   *  3) Sum marks from (1)/(2)/(3)
+   *  3) Sum marks from feedback
    *  4) Store + show final result
    */
   private async handleMarkButtonClick(): Promise<void> {
@@ -199,36 +247,31 @@ export default class QuestionDocumentView extends ItemView {
     new Notice("Marking in progress...");
 
     try {
-      // 1) Call the LLM
+      // 1) Call the LLM for marking
       const feedbackArray = await markTestAnswers(noteContent, qnaPairs, apiKey);
+      
       // 2) Set local markResults
       this.markResults = new Array(this.generatedTests.length).fill(null);
       feedbackArray.forEach(item => {
         const i = item.questionNumber - 1;
         if (i >= 0 && i < this.generatedTests.length) {
-          this.markResults[i] = { correct: item.correct, feedback: item.feedback };
+          this.markResults[i] = {
+            marks: item.marks,
+            maxMarks: item.maxMarks,
+            feedback: item.feedback
+          };
         }
       });
 
-      // 3) Summation: parse how many marks from (X) at the end
+      // 3) Calculate total marks earned and total possible marks
       let totalPossibleMarks = 0;
       let totalEarnedMarks = 0;
 
-      for (let i = 0; i < this.generatedTests.length; i++) {
-        const qText = this.generatedTests[i].question;
-        const match = qText.match(/\((\d)\)\s*$/); // e.g. "What is... (3)"
-        let questionMarks = 1;
-        if (match) {
-          const parsedVal = parseInt(match[1], 10);
-          if ([1, 2, 3].includes(parsedVal)) {
-            questionMarks = parsedVal;
-          }
-        }
-        totalPossibleMarks += questionMarks;
-
-        // If correct => add questionMarks
-        if (this.markResults[i]?.correct) {
-          totalEarnedMarks += questionMarks;
+      for (let i = 0; i < this.markResults.length; i++) {
+        const result = this.markResults[i];
+        if (result) {
+          totalPossibleMarks += result.maxMarks;
+          totalEarnedMarks += result.marks;
         }
       }
 
@@ -254,7 +297,35 @@ export default class QuestionDocumentView extends ItemView {
       new Notice("Marking complete!");
     } catch (err) {
       console.error("Error marking answers:", err);
-      new Notice("Error marking answers. Check console for details.");
+      
+      // Check for context length error and display specific message
+      if (err instanceof ContextLengthExceededError) {
+        // Show a more detailed notice with the error message and keep it visible longer
+        new Notice(`❌ Context Length Error: ${err.message}`, 10000); // Show for 10 seconds
+        
+        // Create an error message element at the top of the view for better visibility
+        const errorContainer = this.containerEl.createDiv({
+          cls: "error-message",
+        });
+        
+        errorContainer.createEl("h3", {
+          text: "Document Too Large for GPT-4",
+        });
+        
+        errorContainer.createEl("p", {
+          text: err.message,
+        });
+        
+        errorContainer.createEl("p", {
+          cls: "suggestion",
+          text: "Suggestions: Split your document into smaller parts, or use a different model with larger context window.",
+        });
+        
+        // Re-render the rest of the content
+        this.render();
+      } else {
+        new Notice("Error marking answers. Check console for details.");
+      }
     } finally {
       this.hideSpinner(spinnerOverlay);
     }
