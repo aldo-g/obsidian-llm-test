@@ -1,6 +1,6 @@
 import { App, ItemView, Notice, WorkspaceLeaf } from "obsidian";
 import type { IndexedNote } from "../models/types";
-import { generateTestQuestions, ContextLengthExceededError } from "../services/llm";
+import { generateTestQuestions, ContextLengthExceededError, markTestAnswers } from "../services/llm";
 import type MyPlugin from "../../main";
 
 export const VIEW_TYPE = "rag-test-view";
@@ -199,6 +199,27 @@ export default class TestDashboardView extends ItemView {
 
     // Initialize the Create Tests button state
     this.updateCreateBtn(createBtn);
+    
+    // Add the "Mark All Tests" button to the bottom right
+    const markAllContainer = container.createEl("div", { 
+      cls: "mark-all-container" 
+    });
+    
+    const markAllBtn = markAllContainer.createEl("button", {
+      cls: "dashboard-button primary mark-all-button",
+      text: "Mark All Tests"
+    });
+    
+    // Disable the button if there are no partial tests to mark
+    const hasPartialTests = Object.entries(this.plugin.testDocuments).some(([path, doc]) => {
+      // Check if test has answers but no score yet
+      return doc.answers && 
+             Object.values(doc.answers).some(answer => answer && (answer as string).trim().length > 0) && 
+             typeof doc.score !== "number";
+    });
+    
+    markAllBtn.disabled = !hasPartialTests;
+    markAllBtn.onclick = () => this.markAllTests();
   }
 
   /**
@@ -565,6 +586,126 @@ export default class TestDashboardView extends ItemView {
     } catch (error) {
       console.error("Error in test generation:", error);
       new Notice("❌ Some tests could not be generated. Check console for details.");
+    }
+  }
+
+  /**
+   * Marks all tests that have answers but haven't been fully marked yet
+   */
+  async markAllTests() {
+    const ragPlugin = this.plugin;
+    if (!ragPlugin) {
+      new Notice("❌ RAG Test Plugin not found.");
+      return;
+    }
+    
+    const apiKey = ragPlugin.settings.apiKey;
+    if (!apiKey) {
+      new Notice("❌ OpenAI API Key is missing! Please set it in the plugin settings.");
+      return;
+    }
+    
+    // Find all tests with answers that haven't been marked yet
+    const testsToMark: string[] = [];
+    
+    Object.entries(ragPlugin.testDocuments).forEach(([path, doc]) => {
+      // Check if there are answers but no score yet
+      const hasAnswers = doc.answers && 
+                        Object.values(doc.answers).some(answer => answer && (answer as string).trim().length > 0);
+      
+      if (hasAnswers && typeof doc.score !== "number") {
+        testsToMark.push(path);
+      }
+    });
+    
+    if (testsToMark.length === 0) {
+      new Notice("No tests to mark.");
+      return;
+    }
+    
+    // Create a loading overlay
+    const loadingOverlay = this.containerEl.createDiv({ cls: "spinner-overlay" });
+    const loadingContainer = loadingOverlay.createDiv({ cls: "loading-container" });
+    loadingContainer.createDiv({ cls: "spinner" });
+    loadingContainer.createEl("p", { 
+      text: `Marking ${testsToMark.length} tests... This may take a few moments.`,
+      cls: "loading-text"
+    });
+    
+    try {
+      // Process tests concurrently
+      const markingPromises = testsToMark.map(async (filePath) => {
+        try {
+          const indexedNote = ragPlugin.indexedNotes.find(n => n.filePath === filePath);
+          if (!indexedNote) {
+            return { filePath, success: false, error: "Note content not found" };
+          }
+          
+          const docState = ragPlugin.testDocuments[filePath];
+          const noteContent = indexedNote.content;
+          
+          // Prepare question-answer pairs
+          const qnaPairs = docState.questions.map((test, idx) => ({
+            question: test.question,
+            answer: docState.answers[idx] || ""
+          }));
+          
+          // Skip if no actual answers
+          if (!qnaPairs.some(pair => pair.answer.trim())) {
+            return { filePath, success: false, error: "No answers to mark" };
+          }
+          
+          // Mark the answers
+          const feedbackArray = await markTestAnswers(noteContent, qnaPairs, apiKey);
+          
+          // Calculate the score
+          let totalPossibleMarks = 0;
+          let totalEarnedMarks = 0;
+          
+          feedbackArray.forEach(item => {
+            totalPossibleMarks += item.maxMarks;
+            totalEarnedMarks += item.marks;
+          });
+          
+          const percentage = totalPossibleMarks
+            ? ((totalEarnedMarks / totalPossibleMarks) * 100)
+            : 0;
+          
+          // Update the document state
+          ragPlugin.testDocuments[filePath].score = percentage;
+          
+          return { filePath, success: true, score: percentage };
+        } catch (error) {
+          console.error(`Error marking test ${filePath}:`, error);
+          return { filePath, success: false, error: error.message || "Unknown error" };
+        }
+      });
+      
+      // Wait for all marking operations to complete
+      const results = await Promise.all(markingPromises);
+      
+      // Save all changes at once
+      await ragPlugin.saveSettings();
+      
+      // Update the dashboard
+      this.render();
+      
+      // Show results to user
+      const successful = results.filter(r => r.success).length;
+      const failed = results.length - successful;
+      
+      if (failed > 0) {
+        new Notice(`✅ Marked ${successful} tests successfully. ❌ ${failed} tests failed.`);
+        console.error("Failed tests:", results.filter(r => !r.success));
+      } else {
+        new Notice(`✅ Successfully marked all ${successful} tests!`);
+      }
+    } catch (error) {
+      console.error("Error in markAllTests:", error);
+      new Notice("❌ Error marking tests. Check console for details.");
+    } finally {
+      // Remove loading overlay
+      loadingOverlay.remove();
     }
   }
 }
