@@ -1,94 +1,109 @@
-# Obsidian Sample Plugin
+# Obsidian Test Plugin
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Test your knowledge with AI-generated questions based on your Obsidian notes. This plugin helps you study more effectively by creating contextually relevant questions from your notes and providing instant feedback on your answers.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+- **AI-Generated Questions**: Automatically create test questions based on your notes using OpenAI
+- **Knowledge Assessment**: Test your understanding with customized questions at different difficulty levels
+- **Instant Feedback**: Get immediate feedback on your answers
+- **Score Tracking**: Track your progress with detailed scoring
+- **Bulk Testing**: Mark multiple tests simultaneously to save time
+- **Organized Dashboard**: View and manage all your tests in one place
 
-## First time developing plugins?
+## Installation
 
-Quick starting guide for new plugin devs:
+### From Obsidian Community Plugins
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+1. Open Obsidian Settings
+2. Go to "Community Plugins" and disable Safe Mode
+3. Click "Browse" and search for "Test Plugin"
+4. Install the plugin and enable it
 
-## Releasing new releases
+### Manual Installation
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+1. Download the latest release from the [GitHub releases page](https://github.com/aldo-g/obsidian-rag-test-plugin/releases)
+2. Extract the files into your Obsidian vault's `.obsidian/plugins/obsidian-rag-test-plugin` folder
+3. Restart Obsidian and enable the plugin in the Community Plugins settings
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+## Setup
 
-## Adding your plugin to the community plugin list
+1. After installation, go to the plugin settings in Obsidian
+2. Enter your OpenAI API key (required for generating and marking tests)
+3. Click the test flask icon in the ribbon or use the command "Open Test Dashboard"
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+## Usage
 
-## How to use
+### Creating Tests
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+1. Open the Test Dashboard from the ribbon or command palette
+2. Click "Refresh" to scan your vault for notes
+3. Select the notes you want to create tests for by checking the boxes
+4. Click "Create Tests" to generate questions based on the selected notes
 
-## Manually installing the plugin
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+### Taking Tests
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint .\src\`
+1. From the Test Dashboard, click on any test with a "Start" badge
+2. Answer the questions in the test document
+3. Click "Mark" to receive feedback and scoring
+4. Review your results and improve your understanding
 
-## Funding URL
+### Bulk Marking
 
-You can include funding URLs where people who use your plugin can financially support it.
+The plugin allows you to mark multiple tests at once:
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+1. Complete answers in multiple test documents
+2. Return to the Test Dashboard
+3. Click "Mark All Tests" button at the bottom right
+4. All tests with answers will be graded simultaneously
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
-```
+## How It Works
 
-If you have multiple URLs, you can also do:
+This plugin uses Retrieval-Augmented Generation (RAG) with OpenAI's GPT models to:
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
+1. **Index and analyze** your Obsidian notes
+2. **Generate contextually relevant questions** based on the content
+3. **Mark your answers** by comparing them to the original note content
+4. **Provide helpful feedback** to improve your understanding
 
-## API Documentation
+## Requirements
 
-See https://github.com/obsidianmd/obsidian-api
+- Obsidian v0.15.0 or higher
+- An OpenAI API key
+
+## FAQ & Troubleshooting
+
+**Q: Why do I need an OpenAI API key?**  
+A: The plugin uses OpenAI's API to generate questions and mark answers. You can get an API key from [OpenAI's website](https://platform.openai.com/).
+
+**Q: Will my notes be sent to OpenAI?**  
+A: Yes, the plugin sends the content of the notes you select for test generation to OpenAI's API. Only use this plugin with notes that you're comfortable sharing with OpenAI.
+
+**Q: I'm getting an error about context length exceeding limits.**  
+A: OpenAI's models have token limits. Try selecting smaller notes or splitting larger notes into multiple files.
+
+**Q: Can I customize the types of questions generated?**  
+A: Currently, the plugin generates a mix of short, long, and extended questions. Future versions may include customization options.
+
+## Privacy
+
+This plugin sends the content of selected notes to OpenAI for processing. Please review [OpenAI's privacy policy](https://openai.com/privacy/) before using this plugin.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+## Acknowledgements
+
+- Built with [Obsidian Plugin API](https://github.com/obsidianmd/obsidian-api)
+- Uses [OpenAI API](https://openai.com/api/) for test generation and grading
