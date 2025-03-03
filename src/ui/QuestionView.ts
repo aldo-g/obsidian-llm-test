@@ -1,13 +1,14 @@
 import { App, ItemView, WorkspaceLeaf, Notice } from "obsidian";
 import type MyPlugin from "../../main";
 import { markTestAnswers, ContextLengthExceededError } from "../services/llm";
+import type { GeneratedTest } from "../models/types";
 
 export const QUESTION_VIEW_TYPE = "question-document-view";
 
 export default class QuestionDocumentView extends ItemView {
   plugin: MyPlugin;
   description: string;
-  generatedTests: { question: string }[];
+  generatedTests: GeneratedTest[] = [];
   filePath: string;
 
   // Map index => user's typed answer.
@@ -23,7 +24,7 @@ export default class QuestionDocumentView extends ItemView {
     leaf: WorkspaceLeaf,
     app: App,
     plugin: MyPlugin,
-    state: { description: string; questions: { question: string }[] }
+    state: { description: string; questions: GeneratedTest[] }
   ) {
     super(leaf);
     this.app = app;

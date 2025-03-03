@@ -647,7 +647,8 @@ export default class TestDashboardView extends ItemView {
           // Prepare question-answer pairs
           const qnaPairs = docState.questions.map((test, idx) => ({
             question: test.question,
-            answer: docState.answers[idx] || ""
+            answer: docState.answers[idx] || "",
+            type: test.type
           }));
           
           // Skip if no actual answers
