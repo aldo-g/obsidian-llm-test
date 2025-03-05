@@ -54,16 +54,54 @@ export default class QuestionDocumentView extends ItemView {
    * Shows a spinner overlay during an async operation (e.g., marking).
    */
   private showSpinner(): HTMLDivElement {
-    const spinnerOverlay = this.containerEl.createDiv({ cls: "spinner-overlay" });
-    spinnerOverlay.createDiv({ cls: "spinner" });
+    // Get the content container (where all questions are displayed)
+    const container = this.containerEl.querySelector(".test-document-container") || this.containerEl;
+    
+    // Create the spinner overlay
+    const spinnerOverlay = container.createDiv({ cls: "spinner-overlay-question" });
+    
+    // Get the full height of the container including all content
+    const contentHeight = Math.max(
+      container.scrollHeight || 0
+    );
+    
+    // Set explicit dimensions to cover the entire content area
+    spinnerOverlay.style.position = "absolute";
+    spinnerOverlay.style.top = "0";
+    spinnerOverlay.style.left = "0";
+    spinnerOverlay.style.width = "100%";
+    spinnerOverlay.style.height = contentHeight + "px";
+    spinnerOverlay.style.zIndex = "1000";
+    
+    // Create spinner and text in a fixed positioned inner container
+    // This stays in viewport while allowing scrolling of the underlying content
+    const spinnerFixed = spinnerOverlay.createDiv({ cls: "spinner-fixed" });
+    spinnerFixed.style.position = "fixed";
+    spinnerFixed.style.top = "50%";
+    spinnerFixed.style.left = "50%";
+    spinnerFixed.style.transform = "translate(-50%, -50%)";
+    spinnerFixed.style.zIndex = "1001";
+    spinnerFixed.style.textAlign = "center";
+    
+    // Add spinner and text
+    const spinner = spinnerFixed.createDiv({ cls: "spinner" });
+    spinnerFixed.createEl("p", { 
+      text: "Marking in progress...",
+      cls: "loading-text"
+    });
+    
+    // Allow scrolling during marking - the overlay will still intercept clicks
+    // but we'll preserve the user's ability to see all content
+    
     return spinnerOverlay;
   }
-
+  
   /**
    * Hides the spinner overlay.
    */
-  private hideSpinner(spinner: HTMLDivElement) {
-    spinner.remove();
+  private hideSpinner(spinnerOverlay: HTMLDivElement) {
+    // Just remove the overlay
+    spinnerOverlay.remove();
   }
 
   /**
@@ -73,29 +111,32 @@ export default class QuestionDocumentView extends ItemView {
     const container = this.containerEl;
     container.empty();
     
+    // Important: Set position to relative to properly contain the overlay
+    container.style.position = 'relative';
+    
     // Apply the container class for styling and ensure scrolling works
     container.addClass("test-document-container");
     
     // Ensure container has scrolling - this is critical!
     container.style.overflowY = "auto";
     container.style.maxHeight = "calc(100vh - 100px)";
-
+  
     if (!this.generatedTests?.length) {
       container.createEl("p", { text: "No test questions available." });
       return;
     }
-
+  
     // Test description with proper styling
     const descEl = container.createEl("p", { 
       text: this.description,
       cls: "test-description" 
     });
-
+  
     const formEl = container.createEl("form");
     
     // Make sure the form doesn't interfere with container scrolling
     formEl.style.overflowY = "visible";
-
+  
     // Create each question with new styling
     this.generatedTests.forEach((test, index) => {
       const questionDiv = formEl.createEl("div", { cls: "question-item" });
@@ -108,7 +149,7 @@ export default class QuestionDocumentView extends ItemView {
       
       // Add the question text (without the Q# prefix, since we have the badge)
       label.createSpan({ text: test.question });
-
+  
       // Styled answer input - CHANGED TO TEXTAREA
       const textarea = questionDiv.createEl("textarea", { 
         cls: "answer-input",
@@ -117,12 +158,12 @@ export default class QuestionDocumentView extends ItemView {
           rows: "3" // Start with 3 rows, will auto-expand if needed
         }
       }) as HTMLTextAreaElement;
-
+  
       // Restore previously typed answer
       if (this.answers[index]) {
         textarea.value = this.answers[index];
       }
-
+  
       // Apply styling for marking results
       const result = this.markResults[index];
       if (result) {
@@ -137,23 +178,23 @@ export default class QuestionDocumentView extends ItemView {
           textarea.addClass("incorrect"); // No marks
         }
       }
-
+  
       // Adjust textarea height based on content
       const adjustTextareaHeight = () => {
         textarea.style.height = 'auto';
         textarea.style.height = (textarea.scrollHeight) + 'px';
       };
-
+  
       // Run once initially
       setTimeout(adjustTextareaHeight, 0);
-
+  
       // Input change handler
       textarea.addEventListener("input", () => {
         this.answers[index] = textarea.value;
         this.saveAnswers();
         adjustTextareaHeight();
       });
-
+  
       // Feedback element with proper styling
       const feedbackEl = questionDiv.createEl("div", { cls: "feedback" });
       if (result) {
@@ -182,10 +223,10 @@ export default class QuestionDocumentView extends ItemView {
         });
       }
     });
-
+  
     // Styled button row
     const buttonRow = formEl.createEl("div", { cls: "test-document-actions" });
-
+  
     // Mark button with styling
     const markButton = buttonRow.createEl("button", { 
       text: "Mark",
@@ -193,7 +234,7 @@ export default class QuestionDocumentView extends ItemView {
     });
     markButton.type = "button";
     markButton.onclick = () => this.handleMarkButtonClick();
-
+  
     // Reset button with styling
     const resetButton = buttonRow.createEl("button", { 
       text: "Reset",
@@ -201,7 +242,7 @@ export default class QuestionDocumentView extends ItemView {
     });
     resetButton.type = "button";
     resetButton.onclick = () => this.handleResetButtonClick();
-
+  
     // Only show score summary if we have one
     if (this.scoreSummary) {
       const scoreEl = formEl.createEl("div", { 
@@ -209,7 +250,7 @@ export default class QuestionDocumentView extends ItemView {
         cls: "score-summary" 
       });
     }
-
+  
     container.appendChild(formEl);
   }
 
@@ -225,33 +266,50 @@ export default class QuestionDocumentView extends ItemView {
       new Notice("No file path found for this test document.");
       return;
     }
-
+  
     const indexedNote = this.plugin.indexedNotes.find(n => n.filePath === this.filePath);
     if (!indexedNote) {
       new Notice("No indexed content found for this file. Cannot mark answers.");
       return;
     }
-
+  
+    // Get current provider and API key
+    const provider = this.plugin.settings.llmProvider;
+    const apiKeys = this.plugin.settings.apiKeys;
+    
+    if (!apiKeys[provider]) {
+      new Notice(`${this.getProviderDisplayName(provider)} API key missing. Please set it in plugin settings.`);
+      return;
+    }
+  
     const noteContent = indexedNote.content;
     const qnaPairs = this.generatedTests.map((test, idx) => ({
       question: test.question,
-      answer: this.answers[idx] || ""
+      answer: this.answers[idx] || "",
+      type: test.type
     }));
-
-    const apiKey = this.plugin.settings.apiKey;
-    if (!apiKey) {
-      new Notice("OpenAI API key missing. Please set it in plugin settings.");
-      return;
-    }
-
+  
     const spinnerOverlay = this.showSpinner();
-    new Notice("Marking in progress...");
-
+    
+    // Start a periodic check to update the overlay height as content may change
+    const heightUpdateInterval = window.setInterval(() => {
+      const container = this.containerEl.querySelector(".test-document-container") || this.containerEl;
+      const contentHeight = Math.max(container.scrollHeight || 0, container.offsetHeight || 0);
+      spinnerOverlay.style.height = contentHeight + "px";
+    }, 200);
+    
+    new Notice(`Marking in progress using ${this.getProviderDisplayName(provider)}...`);
+  
     try {
-      // 1) Call the LLM for marking
-      const feedbackArray = await markTestAnswers(noteContent, qnaPairs, apiKey);
+      // Call the LLM for marking with the current provider
+      const feedbackArray = await markTestAnswers(
+        noteContent, 
+        qnaPairs, 
+        provider,
+        apiKeys
+      );
       
-      // 2) Set local markResults
+      // Set local markResults
       this.markResults = new Array(this.generatedTests.length).fill(null);
       feedbackArray.forEach(item => {
         const i = item.questionNumber - 1;
@@ -263,11 +321,11 @@ export default class QuestionDocumentView extends ItemView {
           };
         }
       });
-
-      // 3) Calculate total marks earned and total possible marks
+  
+      // Calculate total marks earned and total possible marks
       let totalPossibleMarks = 0;
       let totalEarnedMarks = 0;
-
+  
       for (let i = 0; i < this.markResults.length; i++) {
         const result = this.markResults[i];
         if (result) {
@@ -275,14 +333,14 @@ export default class QuestionDocumentView extends ItemView {
           totalEarnedMarks += result.marks;
         }
       }
-
+  
       const percentage = totalPossibleMarks
         ? ((totalEarnedMarks / totalPossibleMarks) * 100).toFixed(1)
         : "0.0";
-
+  
       this.scoreSummary = `You scored ${totalEarnedMarks} / ${totalPossibleMarks} marks (${percentage}%)`;
-
-      // 4) Store in plugin doc => triggers the dashboard to show final % icon
+  
+      // Store in plugin doc
       if (!this.plugin.testDocuments[this.filePath]) {
         this.plugin.testDocuments[this.filePath] = {
           description: this.description,
@@ -290,10 +348,18 @@ export default class QuestionDocumentView extends ItemView {
           answers: {}
         };
       }
-      this.plugin.testDocuments[this.filePath].score = parseFloat(percentage);
+      
+      // Store the full marking results in the document state
+      this.plugin.testDocuments[this.filePath] = {
+        ...this.plugin.testDocuments[this.filePath],
+        score: parseFloat(percentage),
+        markResults: this.markResults,
+        answers: this.answers
+      };
+      
       await this.plugin.saveSettings();
       this.plugin.markFileAnswered(this.filePath);
-
+  
       this.render();
       new Notice("Marking complete!");
     } catch (err) {
@@ -301,16 +367,16 @@ export default class QuestionDocumentView extends ItemView {
       
       // Check for context length error and display specific message
       if (err instanceof ContextLengthExceededError) {
-        // Show a more detailed notice with the error message and keep it visible longer
-        new Notice(`❌ Context Length Error: ${err.message}`, 10000); // Show for 10 seconds
+        // Show a more detailed notice with the error message
+        new Notice(`❌ Context Length Error: ${err.message}`, 10000);
         
-        // Create an error message element at the top of the view for better visibility
+        // Create an error message element at the top of the view
         const errorContainer = this.containerEl.createDiv({
           cls: "error-message",
         });
         
         errorContainer.createEl("h3", {
-          text: "Document Too Large for GPT-4",
+          text: `Document Too Large for ${this.getProviderDisplayName(provider)}`,
         });
         
         errorContainer.createEl("p", {
@@ -319,16 +385,38 @@ export default class QuestionDocumentView extends ItemView {
         
         errorContainer.createEl("p", {
           cls: "suggestion",
-          text: "Suggestions: Split your document into smaller parts, or use a different model with larger context window.",
+          text: "Suggestions: Split your document into smaller parts, or try a different LLM provider with a larger context window.",
         });
         
         // Re-render the rest of the content
         this.render();
       } else {
-        new Notice("Error marking answers. Check console for details.");
+        new Notice(`Error marking answers with ${this.getProviderDisplayName(provider)}. Check console for details.`);
       }
     } finally {
+      // Clear the height update interval
+      window.clearInterval(heightUpdateInterval);
+      
+      // Hide the spinner
       this.hideSpinner(spinnerOverlay);
+    }
+  }
+  
+  /**
+   * Get a user-friendly display name for the provider
+   */
+  private getProviderDisplayName(provider: string): string {
+    switch (provider) {
+      case "openai":
+        return "OpenAI GPT-4";
+      case "anthropic":
+        return "Claude";
+      case "deepseek":
+        return "DeepSeek";
+      case "gemini":
+        return "Gemini";
+      default:
+        return provider.charAt(0).toUpperCase() + provider.slice(1);
     }
   }
 

@@ -476,24 +476,27 @@ export default class TestDashboardView extends ItemView {
       return;
     }
     
-    const key = ragPlugin.settings.apiKey;
-    if (!key) {
-      new Notice("❌ OpenAI API Key is missing! Please set it in the plugin settings.");
+    // Check if the current provider's API key is set
+    const provider = ragPlugin.settings.llmProvider;
+    const apiKey = ragPlugin.settings.apiKeys[provider];
+    
+    if (!apiKey) {
+      new Notice(`❌ ${this.getProviderDisplayName(provider)} API Key is missing! Please set it in the plugin settings.`);
       return;
     }
-
+  
     const boxes = this.containerEl.querySelectorAll('input[type="checkbox"]');
     const tasks: Promise<void>[] = [];
-
+  
     for (const box of Array.from(boxes)) {
       const input = box as HTMLInputElement;
       if (input.checked) {
         const filePath = input.dataset.filePath;
         if (!filePath) continue;
-
+  
         const note = this.pluginData.find(n => n.filePath === filePath);
         if (!note) continue;
-
+  
         // Find the parent list item and get the status icon
         const fileRow = input.closest('.file-row');
         const icon = fileRow?.querySelector<HTMLSpanElement>(".status-icon");
@@ -502,10 +505,16 @@ export default class TestDashboardView extends ItemView {
           // Show spinner while generating
           icon.innerHTML = `<div class="spinner"></div>`;
         }
-
+  
         tasks.push((async () => {
           try {
-            const res = await generateTestQuestions([note], key);
+            // Pass provider and api keys to the generate function
+            const res = await generateTestQuestions(
+              [note], 
+              ragPlugin.settings.llmProvider,
+              ragPlugin.settings.apiKeys
+            );
+            
             ragPlugin.testDocuments[filePath] = { 
               description: res.description, 
               questions: res.questions, 
@@ -513,6 +522,7 @@ export default class TestDashboardView extends ItemView {
             };
             await ragPlugin.saveSettings();
             
+            // Update UI
             if (icon) {
               // Update icon to show test is ready
               const button = document.createElement('button');
@@ -588,6 +598,24 @@ export default class TestDashboardView extends ItemView {
       new Notice("❌ Some tests could not be generated. Check console for details.");
     }
   }
+  
+  /**
+   * Get a user-friendly display name for the provider
+   */
+  private getProviderDisplayName(provider: string): string {
+    switch (provider) {
+      case "openai":
+        return "OpenAI";
+      case "anthropic":
+        return "Anthropic Claude";
+      case "deepseek":
+        return "DeepSeek";
+      case "gemini":
+        return "Google Gemini";
+      default:
+        return provider.charAt(0).toUpperCase() + provider.slice(1);
+    }
+  }
 
   /**
    * Marks all tests that have answers but haven't been fully marked yet
@@ -599,9 +627,12 @@ export default class TestDashboardView extends ItemView {
       return;
     }
     
-    const apiKey = ragPlugin.settings.apiKey;
-    if (!apiKey) {
-      new Notice("❌ OpenAI API Key is missing! Please set it in the plugin settings.");
+    // Get current provider and API key
+    const provider = ragPlugin.settings.llmProvider;
+    const apiKeys = ragPlugin.settings.apiKeys;
+    
+    if (!apiKeys[provider]) {
+      new Notice(`❌ ${this.getProviderDisplayName(provider)} API Key is missing! Please set it in the plugin settings.`);
       return;
     }
     
@@ -609,28 +640,28 @@ export default class TestDashboardView extends ItemView {
     const testsToMark: string[] = [];
     
     Object.entries(ragPlugin.testDocuments).forEach(([path, doc]) => {
-      // Check if there are answers but no score yet
-      const hasAnswers = doc.answers && 
-                        Object.values(doc.answers).some(answer => answer && (answer as string).trim().length > 0);
-      
-      if (hasAnswers && typeof doc.score !== "number") {
-        testsToMark.push(path);
+      // Only include tests where at least one question has an actual answer
+      if (doc.answers) {
+        const hasActualAnswers = Object.values(doc.answers).some(
+          answer => answer && (answer as string).trim().length > 0
+        );
+        
+        // Only include if it has answers AND hasn't been scored yet
+        if (hasActualAnswers && typeof doc.score !== "number") {
+          testsToMark.push(path);
+        }
       }
     });
     
     if (testsToMark.length === 0) {
-      new Notice("No tests to mark.");
+      new Notice("No tests with answers to mark.");
       return;
     }
     
     // Create a loading overlay
-    const loadingOverlay = this.containerEl.createDiv({ cls: "spinner-overlay" });
-    const loadingContainer = loadingOverlay.createDiv({ cls: "loading-container" });
-    loadingContainer.createDiv({ cls: "spinner" });
-    loadingContainer.createEl("p", { 
-      text: `Marking ${testsToMark.length} tests... This may take a few moments.`,
-      cls: "loading-text"
-    });
+    const loadingOverlay = this.showFullPageSpinner(
+      `Marking ${testsToMark.length} tests using ${this.getProviderDisplayName(provider)}... This may take a few moments.`
+    );
     
     try {
       // Process tests concurrently
@@ -651,31 +682,61 @@ export default class TestDashboardView extends ItemView {
             type: test.type
           }));
           
-          // Skip if no actual answers
+          // Double-check: Skip if no actual answers
           if (!qnaPairs.some(pair => pair.answer.trim())) {
             return { filePath, success: false, error: "No answers to mark" };
           }
           
-          // Mark the answers
-          const feedbackArray = await markTestAnswers(noteContent, qnaPairs, apiKey);
+          // Mark the answers using the current provider
+          const feedbackArray = await markTestAnswers(
+            noteContent, 
+            qnaPairs, 
+            provider,
+            apiKeys
+          );
           
           // Calculate the score
           let totalPossibleMarks = 0;
           let totalEarnedMarks = 0;
           
+          // Create markResults array that matches the QuestionView expected format
+          const markResults = new Array(docState.questions.length).fill(null);
+          
           feedbackArray.forEach(item => {
-            totalPossibleMarks += item.maxMarks;
-            totalEarnedMarks += item.marks;
+            const i = item.questionNumber - 1;
+            if (i >= 0 && i < docState.questions.length) {
+              // Store the marking results for this question
+              markResults[i] = {
+                marks: item.marks,
+                maxMarks: item.maxMarks,
+                feedback: item.feedback
+              };
+              
+              // Add to totals for percentage calculation
+              totalPossibleMarks += item.maxMarks;
+              totalEarnedMarks += item.marks;
+            }
           });
           
+          // Calculate percentage score
           const percentage = totalPossibleMarks
             ? ((totalEarnedMarks / totalPossibleMarks) * 100)
             : 0;
           
-          // Update the document state
-          ragPlugin.testDocuments[filePath].score = percentage;
+          // Update the document state with score and marking data
+          ragPlugin.testDocuments[filePath] = {
+            ...ragPlugin.testDocuments[filePath],
+            score: percentage,
+            markResults: markResults
+          };
           
-          return { filePath, success: true, score: percentage };
+          return { 
+            filePath, 
+            success: true, 
+            score: percentage,
+            earnedMarks: totalEarnedMarks,
+            possibleMarks: totalPossibleMarks
+          };
         } catch (error) {
           console.error(`Error marking test ${filePath}:`, error);
           return { filePath, success: false, error: error.message || "Unknown error" };
@@ -699,14 +760,14 @@ export default class TestDashboardView extends ItemView {
         new Notice(`✅ Marked ${successful} tests successfully. ❌ ${failed} tests failed.`);
         console.error("Failed tests:", results.filter(r => !r.success));
       } else {
-        new Notice(`✅ Successfully marked all ${successful} tests!`);
+        new Notice(`✅ Successfully marked all ${successful} tests with ${this.getProviderDisplayName(provider)}!`);
       }
     } catch (error) {
       console.error("Error in markAllTests:", error);
-      new Notice("❌ Error marking tests. Check console for details.");
+      new Notice(`❌ Error marking tests with ${this.getProviderDisplayName(provider)}. Check console for details.`);
     } finally {
       // Remove loading overlay
-      loadingOverlay.remove();
+      this.hideFullPageSpinner(loadingOverlay);
     }
   }
 }

@@ -16,14 +16,28 @@ export interface IndexedNote {
 	testStatus: TestStatus;
 }
 
+export type LLMProvider = "openai" | "anthropic" | "deepseek" | "gemini";
+
 interface MyPluginSettings {
 	mySetting: string;
-	apiKey: string;
+	llmProvider: LLMProvider;
+	apiKeys: {
+		openai: string;
+		anthropic: string;
+		deepseek: string;
+		gemini: string;
+	};
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	mySetting: "default",
-	apiKey: ""
+	llmProvider: "openai",
+	apiKeys: {
+		openai: "",
+		anthropic: "",
+		deepseek: "",
+		gemini: ""
+	}
 };
 
 export interface TestDocumentState {
@@ -278,16 +292,6 @@ export default class MyPlugin extends Plugin {
   background-color: var(--background-modifier-border-hover);
 }
 
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 3px solid rgba(var(--interactive-accent-rgb), 0.3);
-  border-radius: 50%;
-  border-top-color: var(--interactive-accent);
-  animation: spin 1s linear infinite;
-  display: inline-block;
-}
-
 .empty-state {
   text-align: center;
   padding: 40px 20px;
@@ -408,23 +412,48 @@ export default class MyPlugin extends Plugin {
   border: 1px solid var(--background-modifier-border);
 }
 
-.spinner-overlay {
+.spinner-overlay-question {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  pointer-events: all; /* Capture clicks but allow scrolling */
+}
+
+.spinner-fixed {
+  position: fixed;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 20px;
+  border-radius: 10px;
   background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--interactive-accent);
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+.loading-text {
+  margin-top: 16px;
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
 .error-message {
@@ -640,12 +669,6 @@ export default class MyPlugin extends Plugin {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.loading-text {
-  margin-top: 16px;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text-normal);
-}
 
 .mark-all-button .spinner {
   width: 14px;
@@ -756,36 +779,36 @@ export default class MyPlugin extends Plugin {
 		this.app.workspace.revealLeaf(leaf);
 	
 		setTimeout(() => {
-		const view = leaf.view as QuestionDocumentView;
-		if (view) {
+			const view = leaf.view as QuestionDocumentView;
+			if (view) {
 			view.filePath = filePath;
 			view.description = response.description;
 			view.generatedTests = response.questions;
 			view.answers = response.answers || {};
 			
 			// Also pass the existing mark results if available
-			if (response.markResults) {
-			view.markResults = response.markResults;
-			}
-			
-			// If there's a score, set the score summary
-			if (typeof response.score === "number") {
-			const markResults = response.markResults || [];
-			let totalEarnedMarks = 0;
-			let totalPossibleMarks = 0;
-			
-			markResults.forEach(result => {
-				if (result) {
-				totalEarnedMarks += result.marks;
-				totalPossibleMarks += result.maxMarks;
+			if (response.markResults && response.markResults.length > 0) {
+				view.markResults = response.markResults;
+				
+				// If there's a score, also set the summary text
+				if (typeof response.score === "number") {
+				const markResults = response.markResults || [];
+				let totalEarnedMarks = 0;
+				let totalPossibleMarks = 0;
+				
+				markResults.forEach(result => {
+					if (result) {
+					totalEarnedMarks += result.marks;
+					totalPossibleMarks += result.maxMarks;
+					}
+				});
+				
+				view.scoreSummary = `You scored ${totalEarnedMarks} / ${totalPossibleMarks} marks (${response.score.toFixed(1)}%)`;
 				}
-			});
-			
-			view.scoreSummary = `You scored ${totalEarnedMarks} / ${totalPossibleMarks} marks (${response.score.toFixed(1)}%)`;
 			}
 			
 			view.render();
-		}
+			}
 		}, 200);
 	}
 }
