@@ -5,7 +5,6 @@
 	"minAppVersion": "0.15.0",
 	"description": "A plugin to index test notes and display a dashboard for self-testing based on your notes.",
 	"author": "Aldo E George",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"authorUrl": "https://github.com/aldo-g",
 	"isDesktopOnly": false
 }
