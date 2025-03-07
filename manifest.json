@@ -1,9 +1,9 @@
 {
-	"id": "obsidian-test-plugin",
-	"name": "LLM Test",
+	"id": "obsidian-llm-test-gen-plugin",
+	"name": "LLM Test Generator",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "A plugin to index test notes and display a dashboard for self-testing based on your notes.",
+	"description": "Generate AI-powered test questions from your notes with multiple LLM providers (OpenAI, Claude, Mistral, Gemini, DeepSeek) to enhance your learning and retention.",
 	"author": "Aldo E George",
 	"authorUrl": "https://github.com/aldo-g",
 	"isDesktopOnly": false
