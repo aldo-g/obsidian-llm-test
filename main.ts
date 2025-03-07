@@ -61,9 +61,8 @@ export interface TestDocumentState {
 	questions: GeneratedTest[];
 	answers: { [key: number]: string };
 	score?: number;
-	// Add markResults array to store feedback for each question
 	markResults?: Array<{ marks: number; maxMarks: number; feedback: string } | null>;
-  }
+}
 
 interface MyPluginData {
 	settings: MyPluginSettings;
@@ -78,20 +77,15 @@ export default class MyPlugin extends Plugin {
     stylesLoaded = false;
 
 	async onload() {
-        // Add plugin styles first
         this.loadStyles();
         
 		await this.loadSettings();
 		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes, this));
 		this.registerView(QUESTION_VIEW_TYPE, (leaf) => new QuestionDocumentView(leaf, this.app, this, { description: "", questions: [] }));
 		
-		// Add Test Dashboard button to ribbon
 		this.addRibbonIcon("flask-conical", "Test Dashboard", () => this.openTestDashboard());
+		this.addStatusBarItem().setText("Test Plugin Active");
 		
-		// Add status bar item
-		this.addStatusBarItem().setText("RAG Test Plugin Active");
-		
-		// Add Test Dashboard command
 		this.addCommand({
 			id: "open-test-dashboard",
 			name: "Open Test Dashboard",
@@ -105,7 +99,6 @@ export default class MyPlugin extends Plugin {
 	}
 
 	onunload() {
-        // Remove the custom styles when plugin is disabled
         const styleElement = document.getElementById("obsidian-test-plugin-styles");
         if (styleElement) {
             styleElement.remove();
@@ -115,16 +108,11 @@ export default class MyPlugin extends Plugin {
 		this.app.workspace.detachLeavesOfType(QUESTION_VIEW_TYPE);
 	}
 
-    /**
-     * Loads the custom CSS styles needed for the test views
-     */
     loadStyles() {
-        // Avoid adding duplicate styles
         if (this.stylesLoaded || document.getElementById("obsidian-test-plugin-styles")) {
             return;
         }
 
-        // Create style element and add it to the document head
         const styleElement = document.createElement('style');
         styleElement.id = "obsidian-test-plugin-styles";
         styleElement.textContent = `
@@ -365,10 +353,10 @@ export default class MyPlugin extends Plugin {
   background-color: var(--background-primary);
   font-family: inherit;
   transition: border 0.2s ease;
-  min-height: 60px; /* Minimum height for textarea */
-  resize: vertical; /* Allow vertical resizing */
-  line-height: 1.5; /* Better line spacing */
-  overflow-y: hidden; /* Hide scrollbar when auto-expanding */
+  min-height: 60px;
+  resize: vertical;
+  line-height: 1.5;
+  overflow-y: hidden;
 }
 
 .answer-input:focus {
@@ -434,7 +422,7 @@ export default class MyPlugin extends Plugin {
   left: 0;
   width: 100%;
   background-color: rgba(0, 0, 0, 0.7);
-  pointer-events: all; /* Capture clicks but allow scrolling */
+  pointer-events: all;
 }
 
 .spinner-fixed {
@@ -507,12 +495,12 @@ export default class MyPlugin extends Plugin {
 
 /* Partial mark styling */
 .answer-input.partial {
-  border: 2px solid #f59e0b; /* Amber color for partial marks */
+  border: 2px solid #f59e0b;
   background-color: rgba(245, 158, 11, 0.05);
 }
 
 .feedback.partial {
-  color: #92400e; /* Darker amber for text */
+  color: #92400e;
   background-color: rgba(245, 158, 11, 0.1);
 }
 
@@ -614,7 +602,6 @@ export default class MyPlugin extends Plugin {
   margin-right: 8px;
 }
 
-/* Make the status badges more compact for file tree view */
 .file-row .status-badge {
   font-size: 11px;
   padding: 2px 6px;
@@ -629,13 +616,11 @@ export default class MyPlugin extends Plugin {
   height: 12px;
 }
 
-/* Folder highlight when selected */
 .folder-row.active {
   background-color: var(--background-modifier-active-hover);
   font-weight: 600;
 }
 
-/* Smooth transitions for folder expand/collapse */
 .folder-children {
   animation: fadeIn 0.2s ease;
 }
@@ -685,12 +670,10 @@ export default class MyPlugin extends Plugin {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-
 .mark-all-button .spinner {
   width: 14px;
   height: 14px;
 }
-
 `;
 
         document.head.appendChild(styleElement);
@@ -719,21 +702,12 @@ export default class MyPlugin extends Plugin {
 		await this.saveData(data);
 	}
 
-	/**
-	 * Index all markdown files in the vault. For each file, we count any checklist items
-	 * (- [ ] or - [x]) to determine total/passed and set testsReady=true if total>0.
-	 */
 	async indexTestNotes() {
 		this.indexedNotes = [];
-		console.log("🔍 Discovering files...");
-	
 		const markdownFiles = this.app.vault.getFiles();
-		console.log(`📂 Found ${markdownFiles.length} markdown files.`);
 	
 		for (const file of markdownFiles) {
 			if (!file.path.endsWith(".md")) continue;
-	
-			console.log(`📄 Indexing file: ${file.path}`);
 			const content = await this.app.vault.read(file);
 			
 			this.indexedNotes.push({
@@ -745,16 +719,13 @@ export default class MyPlugin extends Plugin {
 	
 		await this.saveSettings();
 	
-		// ✅ Force Test View to refresh
 		const dashLeaf = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE)[0];
 		if (dashLeaf?.view instanceof TestDashboardView) {
 			dashLeaf.view.pluginData = this.indexedNotes;
 			dashLeaf.view.render();
 		}
 	
-		console.log(`✅ Indexed ${this.indexedNotes.length} notes.`);
 		new Notice(`Indexed ${this.indexedNotes.length} notes`);
-        
         return this.indexedNotes;
 	}
 
@@ -769,9 +740,6 @@ export default class MyPlugin extends Plugin {
 		this.app.workspace.revealLeaf(leaf);
 	}
 
-	/**
-	 * Called after the user types an answer so the dashboard's icons can be updated.
-	 */
 	public markFileAnswered(filePath: string): void {
 		const dashLeaf = this.app.workspace.getLeavesOfType("rag-test-view")[0];
 		if (dashLeaf?.view instanceof TestDashboardView) {
@@ -779,9 +747,6 @@ export default class MyPlugin extends Plugin {
 		}
 	}
 
-	/**
-	 * Opens the question doc for a specific note. Must already have testDocuments data for that path.
-	 */
 	public openQuestionDoc(filePath: string): void {
 		if (!this.testDocuments[filePath]) {
 		new Notice("No tests found for this note. Generate tests first.");
@@ -802,11 +767,9 @@ export default class MyPlugin extends Plugin {
 			view.generatedTests = response.questions;
 			view.answers = response.answers || {};
 			
-			// Also pass the existing mark results if available
 			if (response.markResults && response.markResults.length > 0) {
 				view.markResults = response.markResults;
 				
-				// If there's a score, also set the summary text
 				if (typeof response.score === "number") {
 				const markResults = response.markResults || [];
 				let totalEarnedMarks = 0;

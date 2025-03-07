@@ -6,7 +6,6 @@ import type {
 } from "../models/types";
 import type { LLMProvider } from "../../main";
 
-// IMPORTANT: Make sure these constants are defined at the top of the file
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
@@ -20,17 +19,10 @@ export class ContextLengthExceededError extends Error {
   }
 }
 
-/**
- * Get the current API key for the selected provider.
- */
 function getApiKey(provider: LLMProvider, apiKeys: Record<string, string>): string {
   return apiKeys[provider] || "";
 }
 
-/**
- * Generates test questions, each ending in (1), (2), or (3),
- * plus a 'type' field indicating "short", "long", or "extended".
- */
 export async function generateTestQuestions(
   indexedNotes: IndexedNote[],
   provider: LLMProvider,
@@ -45,8 +37,6 @@ export async function generateTestQuestions(
   }
 
   const notesPrompt = formatNotesForLLM(indexedNotes);
-
-  // System instructions are consistent across providers
   const systemInstructions = `
 You are a helpful AI that generates test questions from user study notes.
 We want each question to end with "(1)", "(2)", or "(3)" to show how many marks it is worth.
@@ -86,10 +76,8 @@ Return JSON in this shape (no extra keys, no markdown fences):
         throw new Error(`Unsupported provider: ${provider}`);
     }
 
-    // Parse and return the response
     return parseTestQuestionsResponse(responseData);
   } catch (error) {
-    // Handle errors, including context length exceeded
     if (error instanceof ContextLengthExceededError) {
       throw error;
     }
@@ -106,9 +94,6 @@ Return JSON in this shape (no extra keys, no markdown fences):
   }
 }
 
-/**
- * Mark user answers using the selected LLM provider.
- */
 export async function markTestAnswers(
   noteContent: string,
   qnaPairs: {
@@ -138,10 +123,8 @@ A question might have (1), (2), or (3) to indicate mark weighting. For each answ
 Output must be a JSON array with these fields only.
 `.trim();
 
-  // Build user prompt with question text + user answers
   let userPrompt = `SOURCE DOCUMENT:\n${noteContent}\n\nUSER ANSWERS:\n`;
   qnaPairs.forEach((pair, index) => {
-    // Extract max marks from question text if possible
     let maxMarks = 1;
     const marksMatch = pair.question.match(/\((\d)\)\s*$/);
     if (marksMatch && [1, 2, 3].includes(parseInt(marksMatch[1], 10))) {
@@ -181,10 +164,8 @@ No extra fields, no markdown code blocks.`;
         throw new Error(`Unsupported provider: ${provider}`);
     }
 
-    // Parse and return the response
     return parseMarkingResponse(responseData);
   } catch (error) {
-    // Handle context length errors
     if (error instanceof ContextLengthExceededError) {
       throw error;
     }
@@ -201,9 +182,6 @@ No extra fields, no markdown code blocks.`;
   }
 }
 
-/**
- * Returns the default model for a given provider if no model is specified
- */
 function getDefaultModel(provider: LLMProvider): string {
   switch (provider) {
     case "openai":
@@ -221,15 +199,11 @@ function getDefaultModel(provider: LLMProvider): string {
   }
 }
 
-/**
- * Parse the response from test question generation.
- */
 function parseTestQuestionsResponse(rawContent: string): TestQuestionsResponse {
   if (!rawContent) {
     throw new Error("No content from LLM for test questions.");
   }
 
-  // Clean up potential formatting
   let jsonString = rawContent.trim();
   if (jsonString.startsWith("```json")) {
     jsonString = jsonString.slice(7).trim();
@@ -253,9 +227,6 @@ function parseTestQuestionsResponse(rawContent: string): TestQuestionsResponse {
   }
 }
 
-/**
- * Parse the response from marking answers.
- */
 function parseMarkingResponse(feedback: string): Array<{ questionNumber: number; marks: number; maxMarks: number; feedback: string }> {
   if (!feedback) {
     throw new Error("No marking feedback returned by LLM.");
@@ -278,7 +249,6 @@ function parseMarkingResponse(feedback: string): Array<{ questionNumber: number;
   }
 }
 
-// Provider-specific API calls
 async function callOpenAI(
   systemMessage: string, 
   userPrompt: string, 
@@ -422,7 +392,6 @@ async function callGemini(
 ): Promise<string> {
   const fullPrompt = `${systemMessage}\n\n${userPrompt}`;
   
-  // For Gemini, the model is part of the URL
   const modelEndpoint = model === "gemini-pro" ? "gemini-pro" : model;
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent?key=${apiKey}`;
   

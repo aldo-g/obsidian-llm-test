@@ -5,14 +5,12 @@ import type MyPlugin from "../../main";
 
 export const VIEW_TYPE = "rag-test-view";
 
-// File tree node structure
 interface FileTreeNode {
   name: string;
   path: string;
   isFolder: boolean;
   children: FileTreeNode[];
   expanded?: boolean;
-  // For files only
   note?: IndexedNote;
 }
 
@@ -34,7 +32,6 @@ export default class TestDashboardView extends ItemView {
   getDisplayText() { return "Test Dashboard"; }
 
   async onOpen() { 
-    // If we don't have any data, automatically refresh
     if (!this.pluginData || this.pluginData.length === 0) {
       this.handleRefresh();
     } else {
@@ -42,13 +39,8 @@ export default class TestDashboardView extends ItemView {
     }
   }
   
-  /**
-   * Shows a full page spinner overlay with loading text
-   */
   private showFullPageSpinner(loadingText: string): HTMLDivElement {
     const container = this.containerEl;
-    
-    // Create the loading overlay
     const loadingOverlay = container.createDiv({ cls: "loading-container" });
     loadingOverlay.style.position = "fixed";
     loadingOverlay.style.top = "0";
@@ -61,7 +53,6 @@ export default class TestDashboardView extends ItemView {
     loadingOverlay.style.alignItems = "center";
     loadingOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     
-    // Create spinner element
     const spinnerContainer = loadingOverlay.createDiv({ cls: "loading-container" });
     spinnerContainer.createDiv({ cls: "spinner" });
     spinnerContainer.createEl("p", { text: loadingText, cls: "loading-text" });
@@ -69,45 +60,32 @@ export default class TestDashboardView extends ItemView {
     return loadingOverlay;
   }
   
-  /**
-   * Hides the full page spinner
-   */
   private hideFullPageSpinner(overlay: HTMLDivElement): void {
     if (overlay) {
       overlay.remove();
     }
   }
   
-  /**
-   * Cleans up stale test documents that don't have corresponding files in the vault.
-   * Returns the number of removed documents.
-   */
   private async cleanupStaleTestDocuments(): Promise<number> {
     const ragPlugin = this.plugin;
     if (!ragPlugin) {
       return 0;
     }
     
-    // Get the set of valid file paths
     const validFilePaths = new Set(ragPlugin.indexedNotes.map(note => note.filePath));
     const staleTestPaths: string[] = [];
     
-    // Find stale test documents
     Object.keys(ragPlugin.testDocuments).forEach(path => {
       if (!validFilePaths.has(path)) {
         staleTestPaths.push(path);
       }
     });
     
-    // Remove stale test documents
     if (staleTestPaths.length > 0) {
-      console.log("Removing stale test documents:", staleTestPaths);
-      
       staleTestPaths.forEach(path => {
         delete ragPlugin.testDocuments[path];
       });
       
-      // Save the cleaned-up state
       await ragPlugin.saveSettings();
     }
     
@@ -116,30 +94,22 @@ export default class TestDashboardView extends ItemView {
   
   async onClose() {}
 
-  /**
-   * Builds a file tree structure from the flat list of files
-   */
   buildFileTree() {
-    // Reset the tree
     this.fileTreeRoot = { name: "root", path: "", isFolder: true, children: [] };
     
-    // Process each file path
     this.pluginData.forEach(note => {
       const pathParts = note.filePath.split('/');
       let currentNode = this.fileTreeRoot;
       let currentPath = "";
       
-      // Process each path segment except the last one (which is the file name)
       for (let i = 0; i < pathParts.length - 1; i++) {
         const folderName = pathParts[i];
         currentPath = currentPath ? `${currentPath}/${folderName}` : folderName;
         
-        // Check if folder already exists in current node's children
         let folderNode = currentNode.children.find(
           child => child.isFolder && child.name === folderName
         );
         
-        // If folder doesn't exist, create it
         if (!folderNode) {
           folderNode = {
             name: folderName,
@@ -151,11 +121,9 @@ export default class TestDashboardView extends ItemView {
           currentNode.children.push(folderNode);
         }
         
-        // Move down to this folder
         currentNode = folderNode;
       }
       
-      // Add the file to the current folder
       const fileName = pathParts[pathParts.length - 1];
       currentNode.children.push({
         name: fileName,
@@ -166,22 +134,16 @@ export default class TestDashboardView extends ItemView {
       });
     });
     
-    // Sort folders and files
     this.sortFileTree(this.fileTreeRoot);
   }
   
-  /**
-   * Recursively sorts the file tree - folders first, then files, both alphabetically
-   */
   sortFileTree(node: FileTreeNode) {
-    // Sort the children: folders first (alphabetically), then files (alphabetically)
     node.children.sort((a, b) => {
       if (a.isFolder && !b.isFolder) return -1;
       if (!a.isFolder && b.isFolder) return 1;
       return a.name.localeCompare(b.name);
     });
     
-    // Sort children of folders recursively
     node.children.forEach(child => {
       if (child.isFolder) {
         this.sortFileTree(child);
@@ -192,33 +154,26 @@ export default class TestDashboardView extends ItemView {
   async render() {
     const container = this.containerEl;
     container.empty();
-    
-    // Apply the container class for styling
     container.addClass("test-dashboard-container");
 
-    // Check if the plugin is available (it should be, since we're passing it in)
     const ragPlugin = this.plugin;
     if (!ragPlugin) {
       container.createEl("div", { 
         cls: "empty-state",
-        text: "RAG Test Plugin not found." 
+        text: "Test Plugin not found." 
       });
       return;
     }
 
-    // Create header with title and buttons
     const header = container.createEl("div", { cls: "dashboard-header" });
     
-    // Title
     header.createEl("h2", { 
       text: "Test Dashboard",
       cls: "dashboard-title" 
     });
     
-    // Buttons container
     const buttonContainer = header.createEl("div", { cls: "dashboard-actions" });
     
-    // Refresh button
     const refreshBtn = buttonContainer.createEl("button", { 
       cls: "dashboard-button secondary",
       attr: {
@@ -226,7 +181,6 @@ export default class TestDashboardView extends ItemView {
       }
     });
     
-    // Refresh button content
     if (this.isRefreshing) {
       refreshBtn.createDiv({ cls: "spinner" });
       refreshBtn.createSpan({ text: " Refreshing..." });
@@ -243,18 +197,15 @@ export default class TestDashboardView extends ItemView {
     refreshBtn.disabled = this.isRefreshing;
     refreshBtn.onclick = () => this.handleRefresh();
     
-    // Create Tests button
     const createBtn = buttonContainer.createEl("button", { 
       text: "Create Tests",
       cls: "dashboard-button primary" 
     });
-    createBtn.disabled = true; // Enable when files are selected
+    createBtn.disabled = true;
     createBtn.onclick = () => this.createTests();
 
-    // File tree container
     const fileTreeContainer = container.createEl("div", { cls: "file-tree-container" });
     
-    // If no files found, show empty state
     if (!this.pluginData || this.pluginData.length === 0) {
       fileTreeContainer.createEl("div", { 
         cls: "empty-state",
@@ -263,16 +214,10 @@ export default class TestDashboardView extends ItemView {
       return;
     }
 
-    // Rebuild the file tree (in case new files were added)
     this.buildFileTree();
-    
-    // Render the file tree
     this.renderFileTree(fileTreeContainer, this.fileTreeRoot, createBtn);
-
-    // Initialize the Create Tests button state
     this.updateCreateBtn(createBtn);
     
-    // Add the "Mark All Tests" button to the bottom right
     const markAllContainer = container.createEl("div", { 
       cls: "mark-all-container" 
     });
@@ -282,9 +227,7 @@ export default class TestDashboardView extends ItemView {
       text: "Mark All Tests"
     });
     
-    // Disable the button if there are no partial tests to mark
     const hasPartialTests = Object.entries(this.plugin.testDocuments).some(([path, doc]) => {
-      // Check if test has answers but no score yet
       return doc.answers && 
              Object.values(doc.answers).some(answer => answer && (answer as string).trim().length > 0) && 
              typeof doc.score !== "number";
@@ -294,12 +237,8 @@ export default class TestDashboardView extends ItemView {
     markAllBtn.onclick = () => this.markAllTests();
   }
 
-  /**
-   * Recursively renders the file tree
-   */
   renderFileTree(container: HTMLElement, node: FileTreeNode, createBtn: HTMLButtonElement, level = 0) {
     if (node === this.fileTreeRoot) {
-      // For the root node, just render its children
       const treeRoot = container.createEl("div", { cls: "file-tree" });
       node.children.forEach(child => {
         this.renderFileTree(treeRoot, child, createBtn, level);
@@ -308,15 +247,11 @@ export default class TestDashboardView extends ItemView {
     }
     
     const item = container.createEl("div", { cls: "file-tree-item" });
-    
-    // Add indentation based on nesting level
     item.style.paddingLeft = `${level * 20}px`;
     
-    // Create expand/collapse toggle for folders
     if (node.isFolder) {
       const folderRow = item.createEl("div", { cls: "folder-row" });
       
-      // Toggle button
       const toggleBtn = folderRow.createEl("div", { 
         cls: `folder-toggle ${node.expanded ? 'expanded' : 'collapsed'}` 
       });
@@ -328,7 +263,6 @@ export default class TestDashboardView extends ItemView {
         </svg>
       `;
       
-      // Folder icon
       const folderIcon = folderRow.createEl("span", { cls: "folder-icon" });
       folderIcon.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
@@ -337,29 +271,21 @@ export default class TestDashboardView extends ItemView {
         </svg>
       `;
       
-      // Folder name
       folderRow.createEl("span", { text: node.name, cls: "folder-name" });
       
-      // Click handler for the folder row
       folderRow.onclick = (e) => {
-        // Toggle the expanded state
         node.expanded = !node.expanded;
         
-        // Update expanded folders set
         if (node.expanded) {
           this.expandedFolders.add(node.path);
         } else {
           this.expandedFolders.delete(node.path);
         }
         
-        // Re-render the tree
         this.render();
-        
-        // Prevent event from bubbling
         e.stopPropagation();
       };
       
-      // If expanded, render children
       if (node.expanded) {
         const childContainer = item.createEl("div", { cls: "folder-children" });
         node.children.forEach(child => {
@@ -367,17 +293,14 @@ export default class TestDashboardView extends ItemView {
         });
       }
     } else {
-      // This is a file
       const fileRow = item.createEl("div", { cls: "file-row" });
       
-      // Checkbox for file selection
       const checkbox = fileRow.createEl("input", { 
         type: "checkbox",
         cls: "file-checkbox" 
       });
       checkbox.dataset.filePath = node.path;
       
-      // File icon
       const fileIcon = fileRow.createEl("span", { cls: "file-icon" });
       fileIcon.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
@@ -390,16 +313,12 @@ export default class TestDashboardView extends ItemView {
         </svg>
       `;
       
-      // File name
       fileRow.createEl("span", { text: node.name, cls: "file-name" });
       
-      // Status indicator for the file
       const docState = this.plugin.testDocuments[node.path];
       const statusSpan = fileRow.createEl("span", { cls: "status-icon" });
       
-      // Determine the icon and text based on the document state
       if (!docState) {
-        // No tests yet
         const badge = statusSpan.createEl("div", { cls: "status-badge none" });
         badge.innerHTML = `
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="badge-icon">
@@ -409,7 +328,6 @@ export default class TestDashboardView extends ItemView {
           <span>No Tests</span>
         `;
       } else if (typeof docState.score === "number") {
-        // Test completed with score
         const score = docState.score;
         const colorClass = score >= 80 ? "complete" : "partial";
         
@@ -419,7 +337,6 @@ export default class TestDashboardView extends ItemView {
         
         const badge = button.createEl("div", { cls: `status-badge ${colorClass}` });
         
-        // Create circular progress indicator
         const percent = Math.round(score);
         const radius = 8;
         const circumference = 2 * Math.PI * radius;
@@ -442,7 +359,6 @@ export default class TestDashboardView extends ItemView {
           e.stopPropagation();
         };
       } else {
-        // Test created but not taken or partially completed
         const totalQ = docState.questions.length;
         const answeredCount = Object.values(docState.answers || {}).filter(val => (val as string).trim()).length;
         
@@ -456,7 +372,6 @@ export default class TestDashboardView extends ItemView {
         const badge = button.createEl("div", { cls: `status-badge ${colorClass}` });
         
         if (answeredCount === 0) {
-          // Not started
           badge.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="badge-icon">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -468,7 +383,6 @@ export default class TestDashboardView extends ItemView {
             <span>Start</span>
           `;
         } else {
-          // In progress - show actual progress with mini progress bar
           const radius = 8;
           const circumference = 2 * Math.PI * radius;
           const dashoffset = circumference * (1 - percentComplete / 100);
@@ -492,45 +406,31 @@ export default class TestDashboardView extends ItemView {
         };
       }
       
-      // Update Create Tests button when checkbox is clicked
       checkbox.onchange = () => this.updateCreateBtn(createBtn);
     }
   }
 
-  /**
-   * Updates the Create Tests button based on checkbox selection
-   */
   private updateCreateBtn(btn: HTMLButtonElement) {
     const boxes = this.containerEl.querySelectorAll('input[type="checkbox"]');
     btn.disabled = !Array.from(boxes).some(b => (b as HTMLInputElement).checked);
   }
 
-  /**
-   * Handles refreshing the file index
-   */
   async handleRefresh() {
     if (this.isRefreshing) return;
     
     try {
       this.isRefreshing = true;
-      this.render(); // Re-render to show spinner
-      
-      // Show notice
-      new Notice("🔄 Refreshing test index...");
-      
-      // Call the indexing function
-      const refreshedNotes = await this.plugin.indexTestNotes();
-      
-      // Update our local data
-      this.pluginData = refreshedNotes;
-      
-      // Clean up stale test documents after refreshing
-      const removedCount = await this.cleanupStaleTestDocuments();
-      
-      // Render the updated view
       this.render();
       
-      // Show success notice
+      new Notice("🔄 Refreshing test index...");
+      
+      const refreshedNotes = await this.plugin.indexTestNotes();
+      this.pluginData = refreshedNotes;
+      
+      const removedCount = await this.cleanupStaleTestDocuments();
+      
+      this.render();
+      
       if (removedCount > 0) {
         new Notice(`✅ Indexed ${refreshedNotes.length} notes and removed ${removedCount} stale test documents.`);
       } else {
@@ -545,17 +445,13 @@ export default class TestDashboardView extends ItemView {
     }
   }
 
-  /**
-   * Creates tests for the selected files
-   */
   async createTests() {
     const ragPlugin = this.plugin;
     if (!ragPlugin) {
-      new Notice("❌ RAG Test Plugin not found.");
+      new Notice("❌ Test Plugin not found.");
       return;
     }
     
-    // Check if the current provider's API key is set
     const provider = ragPlugin.settings.llmProvider;
     const apiKey = ragPlugin.settings.apiKeys[provider];
     
@@ -567,7 +463,6 @@ export default class TestDashboardView extends ItemView {
     const boxes = this.containerEl.querySelectorAll('input[type="checkbox"]');
     const tasks: Promise<void>[] = [];
     
-    // First, clean up any stale test documents
     await this.cleanupStaleTestDocuments();
   
     for (const box of Array.from(boxes)) {
@@ -579,30 +474,21 @@ export default class TestDashboardView extends ItemView {
         const note = this.pluginData.find(n => n.filePath === filePath);
         if (!note) continue;
   
-        // Find the parent list item and get the status icon
         const fileRow = input.closest('.file-row');
         const icon = fileRow?.querySelector<HTMLSpanElement>(".status-icon");
         
         if (icon) {
-          // Show spinner while generating
           icon.innerHTML = `<div class="spinner"></div>`;
         }
   
         tasks.push((async () => {
           try {
-            // Pass provider and api keys to the generate function
             const res = await generateTestQuestions(
               [note], 
               ragPlugin.settings.llmProvider,
               ragPlugin.settings.apiKeys,
               ragPlugin.settings.models
             );
-            
-            // If there's an existing test document for this file, remove it first
-            // This ensures we don't have multiple test documents for the same file
-            if (ragPlugin.testDocuments[filePath]) {
-              console.log(`Replacing existing test document for ${filePath}`);
-            }
             
             ragPlugin.testDocuments[filePath] = { 
               description: res.description, 
@@ -611,9 +497,7 @@ export default class TestDashboardView extends ItemView {
             };
             await ragPlugin.saveSettings();
             
-            // Update UI
             if (icon) {
-              // Update icon to show test is ready
               const button = document.createElement('button');
               button.title = "Open Test Document";
               
@@ -642,7 +526,6 @@ export default class TestDashboardView extends ItemView {
             console.error("Error generating tests:", error);
             
             if (icon) {
-              // Reset icon if error occurs
               const badge = document.createElement('div');
               badge.className = "status-badge none";
               badge.innerHTML = `
@@ -657,9 +540,8 @@ export default class TestDashboardView extends ItemView {
               icon.appendChild(badge);
             }
             
-            // Check for context length error and display specific message
             if (error instanceof ContextLengthExceededError) {
-              new Notice(`❌ ${filePath}: ${error.message}`, 10000); // Show for 10 seconds
+              new Notice(`❌ ${filePath}: ${error.message}`, 10000);
             } else {
               new Notice(`❌ Error generating tests for ${filePath}`);
             }
@@ -672,12 +554,10 @@ export default class TestDashboardView extends ItemView {
       await Promise.all(tasks);
       new Notice("✅ Test generation complete!");
       
-      // Uncheck all boxes after completion
       boxes.forEach(box => {
         (box as HTMLInputElement).checked = false;
       });
       
-      // Update the Create Tests button state
       const createBtn = this.containerEl.querySelector('.dashboard-button.primary') as HTMLButtonElement;
       if (createBtn) {
         createBtn.disabled = true;
@@ -688,35 +568,30 @@ export default class TestDashboardView extends ItemView {
     }
   }
   
-  /**
-   * Get a user-friendly display name for the provider
-   */
   private getProviderDisplayName(provider: string): string {
     switch (provider) {
       case "openai":
         return "OpenAI";
       case "anthropic":
-        return "Anthropic Claude";
+        return "Claude";
       case "deepseek":
         return "DeepSeek";
       case "gemini":
-        return "Google Gemini";
+        return "Gemini";
+      case "mistral":
+        return "Mistral";
       default:
         return provider.charAt(0).toUpperCase() + provider.slice(1);
     }
   }
 
-  /**
-   * Marks all tests that have answers but haven't been fully marked yet
-   */
   async markAllTests() {
     const ragPlugin = this.plugin;
     if (!ragPlugin) {
-      new Notice("❌ RAG Test Plugin not found.");
+      new Notice("❌ Test Plugin not found.");
       return;
     }
     
-    // Get current provider and API key
     const provider = ragPlugin.settings.llmProvider;
     const apiKeys = ragPlugin.settings.apiKeys;
     
@@ -725,22 +600,18 @@ export default class TestDashboardView extends ItemView {
       return;
     }
     
-    // First, clean up stale test documents
     await this.cleanupStaleTestDocuments();
     
-    // Now proceed with finding tests to mark
     const testsToMark: string[] = [];
     const testsAlreadyMarked: string[] = [];
     
     Object.entries(ragPlugin.testDocuments).forEach(([path, doc]) => {
-      // Check if it has actual answers (not empty)
       if (doc.answers) {
         const hasActualAnswers = Object.values(doc.answers).some(
           answer => answer && (answer as string).trim().length > 0
         );
         
         if (hasActualAnswers) {
-          // If it has answers, check if it's already marked
           if (typeof doc.score === "number") {
             testsAlreadyMarked.push(path);
           } else {
@@ -750,13 +621,8 @@ export default class TestDashboardView extends ItemView {
       }
     });
     
-    console.log("Tests to mark:", testsToMark);
-    console.log("Tests already marked:", testsAlreadyMarked);
-    
-    // Check if there are tests with answers but all are already marked
     if (testsToMark.length === 0) {
       if (testsAlreadyMarked.length > 0) {
-        // All tests with answers are already marked - show the notification
         new Notice(`✅ All tests with answers (${testsAlreadyMarked.length}) are already marked.`);
       } else {
         new Notice("No tests with answers to mark.");
@@ -764,8 +630,6 @@ export default class TestDashboardView extends ItemView {
       return;
     }
     
-    // All tests that reached this point should exist in the index because we cleaned up stale ones
-    // But we'll double-check just to be safe
     const validTestsToMark: string[] = [];
     const missingFromIndex: string[] = [];
     
@@ -778,16 +642,11 @@ export default class TestDashboardView extends ItemView {
       }
     }
     
-    // If we still have missing notes after cleanup, something is wrong
     if (missingFromIndex.length > 0) {
-      console.log("Some tests are still missing from the index after cleanup:", missingFromIndex);
-      
-      // Show a notice about the problem
       new Notice("There's an issue with the test index. Please restart Obsidian and try again.", 8000);
       return;
     }
     
-    // If we have no valid tests to mark after filtering, show a message
     if (validTestsToMark.length === 0) {
       if (testsAlreadyMarked.length > 0) {
         new Notice(`✅ All valid tests (${testsAlreadyMarked.length}) are already marked.`);
@@ -797,7 +656,6 @@ export default class TestDashboardView extends ItemView {
       return;
     }
     
-    // Create a loading overlay
     const container = this.containerEl;
     const loadingOverlay = container.createDiv({ cls: "loading-container" });
     loadingOverlay.style.position = "fixed";
@@ -811,7 +669,6 @@ export default class TestDashboardView extends ItemView {
     loadingOverlay.style.alignItems = "center";
     loadingOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     
-    // Create spinner element
     const spinnerContainer = loadingOverlay.createDiv({ cls: "loading-container" });
     spinnerContainer.createDiv({ cls: "spinner" });
     spinnerContainer.createEl("p", { 
@@ -820,13 +677,10 @@ export default class TestDashboardView extends ItemView {
     });
     
     try {
-      // Process tests concurrently
       const markingPromises = validTestsToMark.map(async (filePath) => {
         try {
-          // We already verified these exist in the index
           const indexedNote = ragPlugin.indexedNotes.find(n => n.filePath === filePath);
           
-          // Double check that indexedNote exists (for TypeScript's sake)
           if (!indexedNote) {
             return { filePath, success: false, error: "Note content not found" };
           }
@@ -834,19 +688,16 @@ export default class TestDashboardView extends ItemView {
           const docState = ragPlugin.testDocuments[filePath];
           const noteContent = indexedNote.content;
           
-          // Prepare question-answer pairs
           const qnaPairs = docState.questions.map((test, idx) => ({
             question: test.question,
             answer: docState.answers[idx] || "",
             type: test.type
           }));
           
-          // Double-check: Skip if no actual answers
           if (!qnaPairs.some(pair => pair.answer.trim())) {
             return { filePath, success: false, error: "No answers to mark" };
           }
           
-          // Mark the answers using the current provider
           const feedbackArray = await markTestAnswers(
             noteContent, 
             qnaPairs, 
@@ -855,35 +706,29 @@ export default class TestDashboardView extends ItemView {
             this.plugin.settings.models
           );
           
-          // Calculate the score
           let totalPossibleMarks = 0;
           let totalEarnedMarks = 0;
           
-          // Create markResults array that matches the QuestionView expected format
           const markResults = new Array(docState.questions.length).fill(null);
           
           feedbackArray.forEach(item => {
             const i = item.questionNumber - 1;
             if (i >= 0 && i < docState.questions.length) {
-              // Store the marking results for this question
               markResults[i] = {
                 marks: item.marks,
                 maxMarks: item.maxMarks,
                 feedback: item.feedback
               };
               
-              // Add to totals for percentage calculation
               totalPossibleMarks += item.maxMarks;
               totalEarnedMarks += item.marks;
             }
           });
           
-          // Calculate percentage score
           const percentage = totalPossibleMarks
             ? ((totalEarnedMarks / totalPossibleMarks) * 100)
             : 0;
           
-          // Update the document state with score and marking data
           ragPlugin.testDocuments[filePath] = {
             ...ragPlugin.testDocuments[filePath],
             score: percentage,
@@ -903,22 +748,16 @@ export default class TestDashboardView extends ItemView {
         }
       });
       
-      // Wait for all marking operations to complete
       const results = await Promise.all(markingPromises);
       
-      // Save all changes at once
       await ragPlugin.saveSettings();
-      
-      // Update the dashboard
       this.render();
       
-      // Show results to user
       const successful = results.filter(r => r.success).length;
       const failed = results.length - successful;
       
       if (failed > 0) {
         new Notice(`✅ Marked ${successful} tests successfully. ❌ ${failed} tests failed.`);
-        console.error("Failed tests:", results.filter(r => !r.success));
       } else {
         new Notice(`✅ Successfully marked all ${successful} tests with ${this.getProviderDisplayName(provider)}!`);
       }
@@ -926,7 +765,6 @@ export default class TestDashboardView extends ItemView {
       console.error("Error in markAllTests:", error);
       new Notice(`❌ Error marking tests with ${this.getProviderDisplayName(provider)}. Check console for details.`);
     } finally {
-      // Remove loading overlay
       if (loadingOverlay) {
         loadingOverlay.remove();
       }

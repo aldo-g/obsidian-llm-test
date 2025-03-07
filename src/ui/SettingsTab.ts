@@ -30,7 +30,6 @@ export default class SettingsTab extends PluginSettingTab {
 					.onChange(async (value: LLMProvider) => {
 						this.plugin.settings.llmProvider = value;
 						await this.plugin.saveSettings();
-						// Refresh the view to update which API key field is shown
 						this.display();
 					});
 			});
@@ -192,17 +191,14 @@ export default class SettingsTab extends PluginSettingTab {
 				});
 		}
 		
-		// Add a section explaining API key usage
+		// About section
 		containerEl.createEl("h3", { text: "About API Keys" });
 		const apiInfoDiv = containerEl.createDiv({ cls: "api-key-info" });
 		apiInfoDiv.createEl("p", { 
 			text: "Your API keys are stored locally in your vault and are only used to communicate with the selected LLM provider."
 		});
-		apiInfoDiv.createEl("p", { 
-			text: "This plugin will use the selected provider to generate test questions from your notes and to mark your answers."
-		});
 		
-		// Add provider-specific info
+		// Provider-specific info
 		const providerInfoDiv = containerEl.createDiv({ cls: "provider-info" });
 		
 		if (this.plugin.settings.llmProvider === "openai") {
@@ -222,9 +218,6 @@ export default class SettingsTab extends PluginSettingTab {
 		} else if (this.plugin.settings.llmProvider === "deepseek") {
 			providerInfoDiv.createEl("p", { 
 				text: "DeepSeek API keys can be obtained from the DeepSeek website."
-			});
-			providerInfoDiv.createEl("p", { 
-				text: "DeepSeek models provide excellent reasoning capabilities for test generation and marking."
 			});
 		} else if (this.plugin.settings.llmProvider === "gemini") {
 			providerInfoDiv.createEl("p", { 
