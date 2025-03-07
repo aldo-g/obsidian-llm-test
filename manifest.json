@@ -1,5 +1,5 @@
 {
-	"id": "obsidian-rag-test-plugin",
+	"id": "obsidian-test-plugin",
 	"name": "LLM Test",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",

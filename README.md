@@ -1,10 +1,15 @@
 # Obsidian Test Plugin
 
-Test your knowledge with AI-generated questions based on your Obsidian notes. This plugin helps you study more effectively by creating contextually relevant questions from your notes and providing instant feedback on your answers.
+Test your knowledge with AI-generated questions based on your Obsidian notes. This plugin helps you study more effectively by creating contextually relevant questions from your notes and providing instant feedback on your answers, using various Large Language Models.
 
 ## Features
 
-- **AI-Generated Questions**: Automatically create test questions based on your notes using OpenAI
+- **AI-Generated Questions**: Automatically create test questions based on your notes using multiple LLM providers:
+  - OpenAI (GPT-3.5, GPT-4, GPT-4o)
+  - Anthropic Claude (Claude 3 Opus, Sonnet, Haiku, Claude 3.5 Sonnet)
+  - Mistral AI (Tiny, Small, Medium, Large)
+  - Google Gemini (Pro, 1.5 Pro, 1.5 Flash)
+  - DeepSeek (Chat, Coder)
 - **Knowledge Assessment**: Test your understanding with customized questions at different difficulty levels
 - **Instant Feedback**: Get immediate feedback on your answers
 - **Score Tracking**: Track your progress with detailed scoring
@@ -29,8 +34,32 @@ Test your knowledge with AI-generated questions based on your Obsidian notes. Th
 ## Setup
 
 1. After installation, go to the plugin settings in Obsidian
-2. Enter your OpenAI API key (required for generating and marking tests)
-3. Click the test flask icon in the ribbon or use the command "Open Test Dashboard"
+2. Select your preferred LLM provider (OpenAI, Anthropic Claude, Mistral, Gemini, or DeepSeek)
+3. Enter your API key for the selected provider
+4. Choose your preferred model from the available options
+5. Click the test flask icon in the ribbon or use the command "Open Test Dashboard"
+
+### Getting API Keys
+
+To use this plugin, you'll need an API key from one of the supported providers:
+
+- **OpenAI**: Get your API key from [OpenAI Platform](https://platform.openai.com/account/api-keys)
+- **Anthropic Claude**: Get your API key from [Anthropic Console](https://console.anthropic.com/settings/keys)
+- **Mistral AI**: Get your API key from [Mistral Console](https://console.mistral.ai/api-keys/)
+- **Google Gemini**: Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **DeepSeek**: Get your API key from the DeepSeek website
+
+## Model Selection
+
+You can choose from various models for each provider:
+
+- **OpenAI**: GPT-3.5 Turbo, GPT-4, GPT-4 Turbo, GPT-4o
+- **Anthropic Claude**: Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku, Claude 3.5 Sonnet
+- **Mistral AI**: Mistral Tiny, Mistral Small, Mistral Medium, Mistral Large
+- **Google Gemini**: Gemini Pro, Gemini 1.5 Pro, Gemini 1.5 Flash
+- **DeepSeek**: DeepSeek Chat, DeepSeek Coder
+
+Models with larger context windows (like GPT-4o, Claude 3 Opus, or Gemini 1.5 Pro) can handle longer notes, while smaller models may be more cost-effective for frequent testing.
 
 ## Usage
 
@@ -40,7 +69,6 @@ Test your knowledge with AI-generated questions based on your Obsidian notes. Th
 2. Click "Refresh" to scan your vault for notes
 3. Select the notes you want to create tests for by checking the boxes
 4. Click "Create Tests" to generate questions based on the selected notes
-
 
 ### Taking Tests
 
@@ -60,7 +88,7 @@ The plugin allows you to mark multiple tests at once:
 
 ## How It Works
 
-This plugin uses Retrieval-Augmented Generation (RAG) with OpenAI's GPT models to:
+This plugin uses Retrieval-Augmented Generation (RAG) with various LLM models to:
 
 1. **Index and analyze** your Obsidian notes
 2. **Generate contextually relevant questions** based on the content
@@ -70,25 +98,42 @@ This plugin uses Retrieval-Augmented Generation (RAG) with OpenAI's GPT models t
 ## Requirements
 
 - Obsidian v0.15.0 or higher
-- An OpenAI API key
+- An API key from one of the supported providers (OpenAI, Anthropic, Mistral, Google, or DeepSeek)
 
 ## FAQ & Troubleshooting
 
-**Q: Why do I need an OpenAI API key?**  
-A: The plugin uses OpenAI's API to generate questions and mark answers. You can get an API key from [OpenAI's website](https://platform.openai.com/).
+**Q: Which LLM provider should I use?**  
+A: Each provider has strengths and weaknesses:
+- OpenAI's GPT-4 and GPT-4o provide excellent question generation and feedback
+- Claude 3 Opus has a large context window for longer notes
+- Mistral Medium offers a good balance of performance and cost
+- Gemini 1.5 Pro has excellent context handling capabilities
+- Choose based on your budget, note size, and preferred response style
 
-**Q: Will my notes be sent to OpenAI?**  
-A: Yes, the plugin sends the content of the notes you select for test generation to OpenAI's API. Only use this plugin with notes that you're comfortable sharing with OpenAI.
+**Q: Why do I need an API key?**  
+A: The plugin uses LLM APIs to generate questions and mark answers. You need an API key to access these services.
+
+**Q: Will my notes be sent to the LLM provider?**  
+A: Yes, the plugin sends the content of the notes you select for test generation to the API of your chosen provider. Only use this plugin with notes that you're comfortable sharing with the selected service.
 
 **Q: I'm getting an error about context length exceeding limits.**  
-A: OpenAI's models have token limits. Try selecting smaller notes or splitting larger notes into multiple files.
+A: LLM models have token limits. Try:
+1. Selecting smaller notes
+2. Splitting larger notes into multiple files
+3. Using a model with a larger context window (like GPT-4o, Claude 3 Opus, or Gemini 1.5 Pro)
 
 **Q: Can I customize the types of questions generated?**  
-A: Currently, the plugin generates a mix of short, long, and extended questions. Future versions may include customization options.
+A: Currently, the plugin generates a mix of short (1-mark), long (2-mark), and extended (3-mark) questions. Future versions may include customization options.
 
 ## Privacy
 
-This plugin sends the content of selected notes to OpenAI for processing. Please review [OpenAI's privacy policy](https://openai.com/privacy/) before using this plugin.
+This plugin sends the content of selected notes to your chosen LLM provider for processing. Please review the privacy policy of your selected provider before using this plugin:
+
+- [OpenAI Privacy Policy](https://openai.com/privacy/)
+- [Anthropic Privacy Policy](https://www.anthropic.com/privacy)
+- [Mistral AI Privacy Policy](https://mistral.ai/privacy/)
+- [Google AI Privacy Policy](https://ai.google/static/documents/google-ai-privacy.pdf)
+- [DeepSeek Privacy Policy](https://deepseek.com/privacy)
 
 ## Contributing
 
@@ -101,9 +146,9 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the Zero-Clause BSD License (0BSD):
+This project is licensed under the Zero-Clause BSD License (0BSD).
 
 ## Acknowledgements
 
 - Built with [Obsidian Plugin API](https://github.com/obsidianmd/obsidian-api)
-- Uses [OpenAI API](https://openai.com/api/) for test generation and grading
+- Uses LLM APIs from OpenAI, Anthropic, Mistral, Google, and DeepSeek for test generation and grading
