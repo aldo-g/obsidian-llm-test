@@ -306,7 +306,8 @@ export default class QuestionDocumentView extends ItemView {
         noteContent, 
         qnaPairs, 
         provider,
-        apiKeys
+        apiKeys,
+        this.plugin.settings.models
       );
       
       // Set local markResults

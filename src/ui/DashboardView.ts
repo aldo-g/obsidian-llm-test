@@ -78,6 +78,42 @@ export default class TestDashboardView extends ItemView {
     }
   }
   
+  /**
+   * Cleans up stale test documents that don't have corresponding files in the vault.
+   * Returns the number of removed documents.
+   */
+  private async cleanupStaleTestDocuments(): Promise<number> {
+    const ragPlugin = this.plugin;
+    if (!ragPlugin) {
+      return 0;
+    }
+    
+    // Get the set of valid file paths
+    const validFilePaths = new Set(ragPlugin.indexedNotes.map(note => note.filePath));
+    const staleTestPaths: string[] = [];
+    
+    // Find stale test documents
+    Object.keys(ragPlugin.testDocuments).forEach(path => {
+      if (!validFilePaths.has(path)) {
+        staleTestPaths.push(path);
+      }
+    });
+    
+    // Remove stale test documents
+    if (staleTestPaths.length > 0) {
+      console.log("Removing stale test documents:", staleTestPaths);
+      
+      staleTestPaths.forEach(path => {
+        delete ragPlugin.testDocuments[path];
+      });
+      
+      // Save the cleaned-up state
+      await ragPlugin.saveSettings();
+    }
+    
+    return staleTestPaths.length;
+  }
+  
   async onClose() {}
 
   /**
@@ -488,11 +524,18 @@ export default class TestDashboardView extends ItemView {
       // Update our local data
       this.pluginData = refreshedNotes;
       
+      // Clean up stale test documents after refreshing
+      const removedCount = await this.cleanupStaleTestDocuments();
+      
       // Render the updated view
       this.render();
       
       // Show success notice
-      new Notice(`✅ Indexed ${refreshedNotes.length} notes`);
+      if (removedCount > 0) {
+        new Notice(`✅ Indexed ${refreshedNotes.length} notes and removed ${removedCount} stale test documents.`);
+      } else {
+        new Notice(`✅ Indexed ${refreshedNotes.length} notes.`);
+      }
     } catch (error) {
       console.error("Error refreshing index:", error);
       new Notice("❌ Error refreshing index. Check console for details.");
@@ -523,6 +566,9 @@ export default class TestDashboardView extends ItemView {
   
     const boxes = this.containerEl.querySelectorAll('input[type="checkbox"]');
     const tasks: Promise<void>[] = [];
+    
+    // First, clean up any stale test documents
+    await this.cleanupStaleTestDocuments();
   
     for (const box of Array.from(boxes)) {
       const input = box as HTMLInputElement;
@@ -548,8 +594,15 @@ export default class TestDashboardView extends ItemView {
             const res = await generateTestQuestions(
               [note], 
               ragPlugin.settings.llmProvider,
-              ragPlugin.settings.apiKeys
+              ragPlugin.settings.apiKeys,
+              ragPlugin.settings.models
             );
+            
+            // If there's an existing test document for this file, remove it first
+            // This ensures we don't have multiple test documents for the same file
+            if (ragPlugin.testDocuments[filePath]) {
+              console.log(`Replacing existing test document for ${filePath}`);
+            }
             
             ragPlugin.testDocuments[filePath] = { 
               description: res.description, 
@@ -672,34 +725,8 @@ export default class TestDashboardView extends ItemView {
       return;
     }
     
-    // First, clean up stale test documents that don't have corresponding files in the vault
-    const validFilePaths = new Set(ragPlugin.indexedNotes.map(note => note.filePath));
-    const staleTestPaths: string[] = [];
-    
-    // Find stale test documents
-    Object.keys(ragPlugin.testDocuments).forEach(path => {
-      if (!validFilePaths.has(path)) {
-        staleTestPaths.push(path);
-      }
-    });
-    
-    // Remove stale test documents
-    if (staleTestPaths.length > 0) {
-      console.log("Removing stale test documents:", staleTestPaths);
-      
-      staleTestPaths.forEach(path => {
-        delete ragPlugin.testDocuments[path];
-      });
-      
-      // Save the cleaned-up state
-      await ragPlugin.saveSettings();
-      
-      // Show a notice
-      new Notice(`Removed ${staleTestPaths.length} stale test documents for files that no longer exist.`);
-      
-      // Re-render the dashboard
-      this.render();
-    }
+    // First, clean up stale test documents
+    await this.cleanupStaleTestDocuments();
     
     // Now proceed with finding tests to mark
     const testsToMark: string[] = [];
@@ -824,7 +851,8 @@ export default class TestDashboardView extends ItemView {
             noteContent, 
             qnaPairs, 
             provider,
-            apiKeys
+            apiKeys,
+            this.plugin.settings.models
           );
           
           // Calculate the score

@@ -16,7 +16,7 @@ export interface IndexedNote {
 	testStatus: TestStatus;
 }
 
-export type LLMProvider = "openai" | "anthropic" | "deepseek" | "gemini";
+export type LLMProvider = "openai" | "anthropic" | "deepseek" | "gemini" | "mistral";
 
 interface MyPluginSettings {
 	mySetting: string;
@@ -26,6 +26,14 @@ interface MyPluginSettings {
 		anthropic: string;
 		deepseek: string;
 		gemini: string;
+		mistral: string;
+	};
+	models: {
+		openai: string;
+		anthropic: string;
+		deepseek: string;
+		gemini: string;
+		mistral: string;
 	};
 }
 
@@ -36,7 +44,15 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 		openai: "",
 		anthropic: "",
 		deepseek: "",
-		gemini: ""
+		gemini: "",
+		mistral: ""
+	},
+	models: {
+		openai: "gpt-4",
+		anthropic: "claude-3-opus-20240229",
+		deepseek: "deepseek-chat",
+		gemini: "gemini-pro",
+		mistral: "mistral-medium"
 	}
 };
 

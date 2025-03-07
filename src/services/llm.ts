@@ -11,6 +11,7 @@ const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
 
 export class ContextLengthExceededError extends Error {
   constructor(message: string) {
@@ -33,9 +34,12 @@ function getApiKey(provider: LLMProvider, apiKeys: Record<string, string>): stri
 export async function generateTestQuestions(
   indexedNotes: IndexedNote[],
   provider: LLMProvider,
-  apiKeys: Record<string, string>
+  apiKeys: Record<string, string>,
+  models?: Record<string, string>
 ): Promise<TestQuestionsResponse> {
   const apiKey = getApiKey(provider, apiKeys);
+  const model = models?.[provider] || getDefaultModel(provider);
+  
   if (!apiKey) {
     throw new Error(`Missing API key for ${provider}! Please set it in the plugin settings.`);
   }
@@ -64,16 +68,19 @@ Return JSON in this shape (no extra keys, no markdown fences):
     
     switch (provider) {
       case "openai":
-        responseData = await callOpenAI(systemInstructions, notesPrompt, apiKey);
+        responseData = await callOpenAI(systemInstructions, notesPrompt, apiKey, model);
         break;
       case "anthropic":
-        responseData = await callAnthropic(systemInstructions, notesPrompt, apiKey);
+        responseData = await callAnthropic(systemInstructions, notesPrompt, apiKey, model);
         break;
       case "deepseek":
-        responseData = await callDeepSeek(systemInstructions, notesPrompt, apiKey);
+        responseData = await callDeepSeek(systemInstructions, notesPrompt, apiKey, model);
         break;
       case "gemini":
-        responseData = await callGemini(systemInstructions, notesPrompt, apiKey);
+        responseData = await callGemini(systemInstructions, notesPrompt, apiKey, model);
+        break;
+      case "mistral":
+        responseData = await callMistral(systemInstructions, notesPrompt, apiKey, model);
         break;
       default:
         throw new Error(`Unsupported provider: ${provider}`);
@@ -110,9 +117,12 @@ export async function markTestAnswers(
     type?: "short" | "long" | "extended";
   }[],
   provider: LLMProvider,
-  apiKeys: Record<string, string>
+  apiKeys: Record<string, string>,
+  models?: Record<string, string>
 ): Promise<Array<{ questionNumber: number; marks: number; maxMarks: number; feedback: string }>> {
   const apiKey = getApiKey(provider, apiKeys);
+  const model = models?.[provider] || getDefaultModel(provider);
+  
   if (!apiKey) {
     throw new Error(`Missing API key for ${provider}! Please set it in the plugin settings.`);
   }
@@ -153,16 +163,19 @@ No extra fields, no markdown code blocks.`;
     
     switch (provider) {
       case "openai":
-        responseData = await callOpenAI(systemMessage, userPrompt, apiKey, 1000);
+        responseData = await callOpenAI(systemMessage, userPrompt, apiKey, model, 1000);
         break;
       case "anthropic":
-        responseData = await callAnthropic(systemMessage, userPrompt, apiKey, 1000);
+        responseData = await callAnthropic(systemMessage, userPrompt, apiKey, model, 1000);
         break;
       case "deepseek":
-        responseData = await callDeepSeek(systemMessage, userPrompt, apiKey, 1000);
+        responseData = await callDeepSeek(systemMessage, userPrompt, apiKey, model, 1000);
         break;
       case "gemini":
-        responseData = await callGemini(systemMessage, userPrompt, apiKey, 1000);
+        responseData = await callGemini(systemMessage, userPrompt, apiKey, model, 1000);
+        break;
+      case "mistral":
+        responseData = await callMistral(systemMessage, userPrompt, apiKey, model, 1000);
         break;
       default:
         throw new Error(`Unsupported provider: ${provider}`);
@@ -185,6 +198,26 @@ No extra fields, no markdown code blocks.`;
     }
     
     throw error;
+  }
+}
+
+/**
+ * Returns the default model for a given provider if no model is specified
+ */
+function getDefaultModel(provider: LLMProvider): string {
+  switch (provider) {
+    case "openai":
+      return "gpt-4";
+    case "anthropic":
+      return "claude-3-opus-20240229";
+    case "deepseek":
+      return "deepseek-chat";
+    case "gemini":
+      return "gemini-pro";
+    case "mistral":
+      return "mistral-medium";
+    default:
+      return "";
   }
 }
 
@@ -246,9 +279,15 @@ function parseMarkingResponse(feedback: string): Array<{ questionNumber: number;
 }
 
 // Provider-specific API calls
-async function callOpenAI(systemMessage: string, userPrompt: string, apiKey: string, maxTokens = 500): Promise<string> {
+async function callOpenAI(
+  systemMessage: string, 
+  userPrompt: string, 
+  apiKey: string, 
+  model: string = "gpt-4", 
+  maxTokens = 500
+): Promise<string> {
   const requestBody = {
-    model: "gpt-4",
+    model: model,
     messages: [
       { role: "system", content: systemMessage },
       { role: "user", content: userPrompt }
@@ -271,7 +310,7 @@ async function callOpenAI(systemMessage: string, userPrompt: string, apiKey: str
     
     if (errorData.error?.code === "context_length_exceeded") {
       throw new ContextLengthExceededError(
-        "The document is too large for GPT-4's context window. Please split your document into smaller sections."
+        `The document is too large for ${model}'s context window. Please split your document into smaller sections.`
       );
     }
     
@@ -282,9 +321,15 @@ async function callOpenAI(systemMessage: string, userPrompt: string, apiKey: str
   return responseData.choices?.[0]?.message?.content || "";
 }
 
-async function callAnthropic(systemMessage: string, userPrompt: string, apiKey: string, maxTokens = 500): Promise<string> {
+async function callAnthropic(
+  systemMessage: string, 
+  userPrompt: string, 
+  apiKey: string, 
+  model: string = "claude-3-opus-20240229", 
+  maxTokens = 500
+): Promise<string> {
   const requestBody = {
-    model: "claude-3-opus-20240229",
+    model: model,
     messages: [
       {
         role: "user",
@@ -315,7 +360,7 @@ async function callAnthropic(systemMessage: string, userPrompt: string, apiKey: 
     if (errorData.error?.type === "context_length_exceeded" || 
         errorData.error?.message?.includes("context window")) {
       throw new ContextLengthExceededError(
-        "The document is too large for Claude's context window. Please split your document into smaller sections."
+        `The document is too large for ${model}'s context window. Please split your document into smaller sections.`
       );
     }
     
@@ -326,9 +371,15 @@ async function callAnthropic(systemMessage: string, userPrompt: string, apiKey: 
   return responseData.content?.[0]?.text || "";
 }
 
-async function callDeepSeek(systemMessage: string, userPrompt: string, apiKey: string, maxTokens = 500): Promise<string> {
+async function callDeepSeek(
+  systemMessage: string, 
+  userPrompt: string, 
+  apiKey: string, 
+  model: string = "deepseek-chat", 
+  maxTokens = 500
+): Promise<string> {
   const requestBody = {
-    model: "deepseek-chat",
+    model: model,
     messages: [
       { role: "system", content: systemMessage },
       { role: "user", content: userPrompt }
@@ -351,7 +402,7 @@ async function callDeepSeek(systemMessage: string, userPrompt: string, apiKey: s
     if (errorData.error?.code === "context_window_exceeded" || 
         errorData.error?.message?.includes("context length")) {
       throw new ContextLengthExceededError(
-        "The document is too large for DeepSeek's context window. Please split your document into smaller sections."
+        `The document is too large for ${model}'s context window. Please split your document into smaller sections.`
       );
     }
     
@@ -362,8 +413,18 @@ async function callDeepSeek(systemMessage: string, userPrompt: string, apiKey: s
   return responseData.choices?.[0]?.message?.content || "";
 }
 
-async function callGemini(systemMessage: string, userPrompt: string, apiKey: string, maxTokens = 500): Promise<string> {
+async function callGemini(
+  systemMessage: string, 
+  userPrompt: string, 
+  apiKey: string, 
+  model: string = "gemini-pro", 
+  maxTokens = 500
+): Promise<string> {
   const fullPrompt = `${systemMessage}\n\n${userPrompt}`;
+  
+  // For Gemini, the model is part of the URL
+  const modelEndpoint = model === "gemini-pro" ? "gemini-pro" : model;
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent?key=${apiKey}`;
   
   const requestBody = {
     contents: [
@@ -379,7 +440,7 @@ async function callGemini(systemMessage: string, userPrompt: string, apiKey: str
     }
   };
 
-  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+  const response = await fetch(apiUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -393,7 +454,7 @@ async function callGemini(systemMessage: string, userPrompt: string, apiKey: str
     if (errorData.error?.message?.includes("context length") || 
         errorData.error?.message?.includes("token limit")) {
       throw new ContextLengthExceededError(
-        "The document is too large for Gemini's context window. Please split your document into smaller sections."
+        `The document is too large for ${model}'s context window. Please split your document into smaller sections.`
       );
     }
     
@@ -402,4 +463,48 @@ async function callGemini(systemMessage: string, userPrompt: string, apiKey: str
 
   const responseData = await response.json();
   return responseData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
+async function callMistral(
+  systemMessage: string, 
+  userPrompt: string, 
+  apiKey: string, 
+  model: string = "mistral-medium", 
+  maxTokens = 500
+): Promise<string> {
+  const requestBody = {
+    model: model,
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userPrompt }
+    ],
+    temperature: 0.7,
+    max_tokens: maxTokens
+  };
+
+  const response = await fetch(MISTRAL_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    
+    if (errorData.error?.type === "context_length_exceeded" || 
+        errorData.error?.message?.includes("context") || 
+        errorData.error?.message?.includes("token limit")) {
+      throw new ContextLengthExceededError(
+        `The document is too large for ${model}'s context window. Please split your document into smaller sections.`
+      );
+    }
+    
+    throw new Error(`Mistral API Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+  }
+
+  const responseData = await response.json();
+  return responseData.choices?.[0]?.message?.content || "";
 }

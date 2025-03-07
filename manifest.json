@@ -1,6 +1,6 @@
 {
 	"id": "obsidian-rag-test-plugin",
-	"name": "Obsidian RAG Test Plugin",
+	"name": "LLM Test",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "A plugin to index test notes and display a dashboard for self-testing based on your notes.",
