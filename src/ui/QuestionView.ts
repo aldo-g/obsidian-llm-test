@@ -294,7 +294,7 @@ export default class QuestionDocumentView extends ItemView {
     // Start a periodic check to update the overlay height as content may change
     const heightUpdateInterval = window.setInterval(() => {
       const container = this.containerEl.querySelector(".test-document-container") || this.containerEl;
-      const contentHeight = Math.max(container.scrollHeight || 0, container.offsetHeight || 0);
+      const contentHeight = Math.max(container.scrollHeight || 0);
       spinnerOverlay.style.height = contentHeight + "px";
     }, 200);
     

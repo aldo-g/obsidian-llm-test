@@ -42,6 +42,42 @@ export default class TestDashboardView extends ItemView {
     }
   }
   
+  /**
+   * Shows a full page spinner overlay with loading text
+   */
+  private showFullPageSpinner(loadingText: string): HTMLDivElement {
+    const container = this.containerEl;
+    
+    // Create the loading overlay
+    const loadingOverlay = container.createDiv({ cls: "loading-container" });
+    loadingOverlay.style.position = "fixed";
+    loadingOverlay.style.top = "0";
+    loadingOverlay.style.left = "0";
+    loadingOverlay.style.width = "100%";
+    loadingOverlay.style.height = "100%";
+    loadingOverlay.style.zIndex = "1000";
+    loadingOverlay.style.display = "flex";
+    loadingOverlay.style.justifyContent = "center";
+    loadingOverlay.style.alignItems = "center";
+    loadingOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    
+    // Create spinner element
+    const spinnerContainer = loadingOverlay.createDiv({ cls: "loading-container" });
+    spinnerContainer.createDiv({ cls: "spinner" });
+    spinnerContainer.createEl("p", { text: loadingText, cls: "loading-text" });
+    
+    return loadingOverlay;
+  }
+  
+  /**
+   * Hides the full page spinner
+   */
+  private hideFullPageSpinner(overlay: HTMLDivElement): void {
+    if (overlay) {
+      overlay.remove();
+    }
+  }
+  
   async onClose() {}
 
   /**
@@ -636,38 +672,134 @@ export default class TestDashboardView extends ItemView {
       return;
     }
     
-    // Find all tests with answers that haven't been marked yet
+    // First, clean up stale test documents that don't have corresponding files in the vault
+    const validFilePaths = new Set(ragPlugin.indexedNotes.map(note => note.filePath));
+    const staleTestPaths: string[] = [];
+    
+    // Find stale test documents
+    Object.keys(ragPlugin.testDocuments).forEach(path => {
+      if (!validFilePaths.has(path)) {
+        staleTestPaths.push(path);
+      }
+    });
+    
+    // Remove stale test documents
+    if (staleTestPaths.length > 0) {
+      console.log("Removing stale test documents:", staleTestPaths);
+      
+      staleTestPaths.forEach(path => {
+        delete ragPlugin.testDocuments[path];
+      });
+      
+      // Save the cleaned-up state
+      await ragPlugin.saveSettings();
+      
+      // Show a notice
+      new Notice(`Removed ${staleTestPaths.length} stale test documents for files that no longer exist.`);
+      
+      // Re-render the dashboard
+      this.render();
+    }
+    
+    // Now proceed with finding tests to mark
     const testsToMark: string[] = [];
+    const testsAlreadyMarked: string[] = [];
     
     Object.entries(ragPlugin.testDocuments).forEach(([path, doc]) => {
-      // Only include tests where at least one question has an actual answer
+      // Check if it has actual answers (not empty)
       if (doc.answers) {
         const hasActualAnswers = Object.values(doc.answers).some(
           answer => answer && (answer as string).trim().length > 0
         );
         
-        // Only include if it has answers AND hasn't been scored yet
-        if (hasActualAnswers && typeof doc.score !== "number") {
-          testsToMark.push(path);
+        if (hasActualAnswers) {
+          // If it has answers, check if it's already marked
+          if (typeof doc.score === "number") {
+            testsAlreadyMarked.push(path);
+          } else {
+            testsToMark.push(path);
+          }
         }
       }
     });
     
+    console.log("Tests to mark:", testsToMark);
+    console.log("Tests already marked:", testsAlreadyMarked);
+    
+    // Check if there are tests with answers but all are already marked
     if (testsToMark.length === 0) {
-      new Notice("No tests with answers to mark.");
+      if (testsAlreadyMarked.length > 0) {
+        // All tests with answers are already marked - show the notification
+        new Notice(`✅ All tests with answers (${testsAlreadyMarked.length}) are already marked.`);
+      } else {
+        new Notice("No tests with answers to mark.");
+      }
+      return;
+    }
+    
+    // All tests that reached this point should exist in the index because we cleaned up stale ones
+    // But we'll double-check just to be safe
+    const validTestsToMark: string[] = [];
+    const missingFromIndex: string[] = [];
+    
+    for (const filePath of testsToMark) {
+      const indexedNote = ragPlugin.indexedNotes.find(n => n.filePath === filePath);
+      if (indexedNote) {
+        validTestsToMark.push(filePath);
+      } else {
+        missingFromIndex.push(filePath);
+      }
+    }
+    
+    // If we still have missing notes after cleanup, something is wrong
+    if (missingFromIndex.length > 0) {
+      console.log("Some tests are still missing from the index after cleanup:", missingFromIndex);
+      
+      // Show a notice about the problem
+      new Notice("There's an issue with the test index. Please restart Obsidian and try again.", 8000);
+      return;
+    }
+    
+    // If we have no valid tests to mark after filtering, show a message
+    if (validTestsToMark.length === 0) {
+      if (testsAlreadyMarked.length > 0) {
+        new Notice(`✅ All valid tests (${testsAlreadyMarked.length}) are already marked.`);
+      } else {
+        new Notice("No valid tests with answers found.");
+      }
       return;
     }
     
     // Create a loading overlay
-    const loadingOverlay = this.showFullPageSpinner(
-      `Marking ${testsToMark.length} tests using ${this.getProviderDisplayName(provider)}... This may take a few moments.`
-    );
+    const container = this.containerEl;
+    const loadingOverlay = container.createDiv({ cls: "loading-container" });
+    loadingOverlay.style.position = "fixed";
+    loadingOverlay.style.top = "0";
+    loadingOverlay.style.left = "0";
+    loadingOverlay.style.width = "100%";
+    loadingOverlay.style.height = "100%";
+    loadingOverlay.style.zIndex = "1000";
+    loadingOverlay.style.display = "flex";
+    loadingOverlay.style.justifyContent = "center";
+    loadingOverlay.style.alignItems = "center";
+    loadingOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    
+    // Create spinner element
+    const spinnerContainer = loadingOverlay.createDiv({ cls: "loading-container" });
+    spinnerContainer.createDiv({ cls: "spinner" });
+    spinnerContainer.createEl("p", { 
+      text: `Marking ${validTestsToMark.length} tests using ${this.getProviderDisplayName(provider)}... This may take a few moments.`, 
+      cls: "loading-text" 
+    });
     
     try {
       // Process tests concurrently
-      const markingPromises = testsToMark.map(async (filePath) => {
+      const markingPromises = validTestsToMark.map(async (filePath) => {
         try {
+          // We already verified these exist in the index
           const indexedNote = ragPlugin.indexedNotes.find(n => n.filePath === filePath);
+          
+          // Double check that indexedNote exists (for TypeScript's sake)
           if (!indexedNote) {
             return { filePath, success: false, error: "Note content not found" };
           }
@@ -767,7 +899,9 @@ export default class TestDashboardView extends ItemView {
       new Notice(`❌ Error marking tests with ${this.getProviderDisplayName(provider)}. Check console for details.`);
     } finally {
       // Remove loading overlay
-      this.hideFullPageSpinner(loadingOverlay);
+      if (loadingOverlay) {
+        loadingOverlay.remove();
+      }
     }
   }
 }
