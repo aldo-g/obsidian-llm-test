@@ -1,5 +1,5 @@
 {
-	"id": "obsidian-llm-test-gen-plugin",
+	"id": "obsidian-llm-test",
 	"name": "LLM Test Generator",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
