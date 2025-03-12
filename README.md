@@ -13,7 +13,6 @@ Test your knowledge with AI-generated questions based on your Obsidian notes. Th
 - **Knowledge Assessment**: Test your understanding with customized questions at different difficulty levels
 - **Instant Feedback**: Get immediate feedback on your answers
 - **Score Tracking**: Track your progress with detailed scoring
-- **Bulk Testing**: Mark multiple tests simultaneously to save time
 - **Organized Dashboard**: View and manage all your tests in one place
 
 ## Installation
@@ -24,12 +23,6 @@ Test your knowledge with AI-generated questions based on your Obsidian notes. Th
 2. Go to "Community Plugins" and disable Safe Mode
 3. Click "Browse" and search for "Test Plugin"
 4. Install the plugin and enable it
-
-### Manual Installation
-
-1. Download the latest release from the [GitHub releases page](https://github.com/aldo-g/obsidian-rag-test-plugin/releases)
-2. Extract the files into your Obsidian vault's `.obsidian/plugins/obsidian-rag-test-plugin` folder
-3. Restart Obsidian and enable the plugin in the Community Plugins settings
 
 ## Setup
 
@@ -101,14 +94,6 @@ This plugin uses Retrieval-Augmented Generation (RAG) with various LLM models to
 - An API key from one of the supported providers (OpenAI, Anthropic, Mistral, Google, or DeepSeek)
 
 ## FAQ & Troubleshooting
-
-**Q: Which LLM provider should I use?**  
-A: Each provider has strengths and weaknesses:
-- OpenAI's GPT-4 and GPT-4o provide excellent question generation and feedback
-- Claude 3 Opus has a large context window for longer notes
-- Mistral Medium offers a good balance of performance and cost
-- Gemini 1.5 Pro has excellent context handling capabilities
-- Choose based on your budget, note size, and preferred response style
 
 **Q: Why do I need an API key?**  
 A: The plugin uses LLM APIs to generate questions and mark answers. You need an API key to access these services.
