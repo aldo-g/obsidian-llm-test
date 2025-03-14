@@ -6,5 +6,6 @@
 	"description": "Generate AI-powered test questions from your notes with multiple LLM providers (OpenAI, Claude, Mistral, Gemini, DeepSeek) to enhance your learning and retention.",
 	"author": "Aldo E George",
 	"authorUrl": "https://github.com/aldo-g",
-	"isDesktopOnly": false
+	"isDesktopOnly": false,
+	"css": ["styles.css"]
   }
