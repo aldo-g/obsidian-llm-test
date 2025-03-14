@@ -41,17 +41,7 @@ export default class TestDashboardView extends ItemView {
   
   private showFullPageSpinner(loadingText: string): HTMLDivElement {
     const container = this.containerEl;
-    const loadingOverlay = container.createDiv({ cls: "loading-container" });
-    loadingOverlay.style.position = "fixed";
-    loadingOverlay.style.top = "0";
-    loadingOverlay.style.left = "0";
-    loadingOverlay.style.width = "100%";
-    loadingOverlay.style.height = "100%";
-    loadingOverlay.style.zIndex = "1000";
-    loadingOverlay.style.display = "flex";
-    loadingOverlay.style.justifyContent = "center";
-    loadingOverlay.style.alignItems = "center";
-    loadingOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    const loadingOverlay = container.createDiv({ cls: "full-page-overlay" });
     
     const spinnerContainer = loadingOverlay.createDiv({ cls: "loading-container" });
     spinnerContainer.createDiv({ cls: "spinner" });
@@ -247,7 +237,14 @@ export default class TestDashboardView extends ItemView {
     }
     
     const item = container.createEl("div", { cls: "file-tree-item" });
-    item.style.paddingLeft = `${level * 20}px`;
+    
+    // Use CSS classes for padding based on level instead of inline styles
+    if (level <= 6) {
+      item.addClass(`tree-item-padding-level-${level}`);
+    } else {
+      // For very deep nesting (rare), we need to use inline style
+      item.style.paddingLeft = `${level * 20}px`;
+    }
     
     if (node.isFolder) {
       const folderRow = item.createEl("div", { cls: "folder-row" });
@@ -657,17 +654,7 @@ export default class TestDashboardView extends ItemView {
     }
     
     const container = this.containerEl;
-    const loadingOverlay = container.createDiv({ cls: "loading-container" });
-    loadingOverlay.style.position = "fixed";
-    loadingOverlay.style.top = "0";
-    loadingOverlay.style.left = "0";
-    loadingOverlay.style.width = "100%";
-    loadingOverlay.style.height = "100%";
-    loadingOverlay.style.zIndex = "1000";
-    loadingOverlay.style.display = "flex";
-    loadingOverlay.style.justifyContent = "center";
-    loadingOverlay.style.alignItems = "center";
-    loadingOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    const loadingOverlay = container.createDiv({ cls: "full-page-overlay" });
     
     const spinnerContainer = loadingOverlay.createDiv({ cls: "loading-container" });
     spinnerContainer.createDiv({ cls: "spinner" });

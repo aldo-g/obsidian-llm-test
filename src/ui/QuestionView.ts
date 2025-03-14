@@ -44,24 +44,13 @@ export default class QuestionDocumentView extends ItemView {
 
   private showSpinner(): HTMLDivElement {
     const container = this.containerEl.querySelector(".test-document-container") || this.containerEl;
-    const spinnerOverlay = container.createDiv({ cls: "spinner-overlay-question" });
+    const spinnerOverlay = container.createDiv({ cls: "spinner-overlay" });
     
     const contentHeight = Math.max(container.scrollHeight || 0);
-    
-    spinnerOverlay.style.position = "absolute";
-    spinnerOverlay.style.top = "0";
-    spinnerOverlay.style.left = "0";
-    spinnerOverlay.style.width = "100%";
+    // Height still needs to be set dynamically as it depends on content
     spinnerOverlay.style.height = contentHeight + "px";
-    spinnerOverlay.style.zIndex = "1000";
     
-    const spinnerFixed = spinnerOverlay.createDiv({ cls: "spinner-fixed" });
-    spinnerFixed.style.position = "fixed";
-    spinnerFixed.style.top = "50%";
-    spinnerFixed.style.left = "50%";
-    spinnerFixed.style.transform = "translate(-50%, -50%)";
-    spinnerFixed.style.zIndex = "1001";
-    spinnerFixed.style.textAlign = "center";
+    const spinnerFixed = spinnerOverlay.createDiv({ cls: "spinner-fixed-center" });
     
     spinnerFixed.createDiv({ cls: "spinner" });
     spinnerFixed.createEl("p", { 
@@ -80,10 +69,8 @@ export default class QuestionDocumentView extends ItemView {
     const container = this.containerEl;
     container.empty();
     
-    container.style.position = 'relative';
     container.addClass("test-document-container");
-    container.style.overflowY = "auto";
-    container.style.maxHeight = "calc(100vh - 100px)";
+    container.addClass("test-container-relative");
   
     if (!this.generatedTests?.length) {
       container.createEl("p", { text: "No test questions available." });
@@ -96,7 +83,7 @@ export default class QuestionDocumentView extends ItemView {
     });
   
     const formEl = container.createEl("form");
-    formEl.style.overflowY = "visible";
+    formEl.addClass("overflow-visible");
   
     this.generatedTests.forEach((test, index) => {
       const questionDiv = formEl.createEl("div", { cls: "question-item" });
@@ -130,6 +117,7 @@ export default class QuestionDocumentView extends ItemView {
         }
       }
   
+      // Auto-sizing textareas still needs JS calculation
       const adjustTextareaHeight = () => {
         textarea.style.height = 'auto';
         textarea.style.height = (textarea.scrollHeight) + 'px';

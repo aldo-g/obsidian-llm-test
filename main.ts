@@ -674,6 +674,61 @@ export default class MyPlugin extends Plugin {
   width: 14px;
   height: 14px;
 }
+
+/* Container positioning */
+.test-container-relative {
+  position: relative;
+  overflow-y: auto;
+  max-height: calc(100vh - 100px);
+}
+
+/* Spinner overlay */
+.spinner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.7);
+  pointer-events: all;
+}
+
+.spinner-fixed-center {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1001;
+  text-align: center;
+}
+
+/* Full page loading overlay */
+.full-page-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Form styling */
+.overflow-visible {
+  overflow-y: visible;
+}
+
+/* Tree padding (use CSS variables for dynamic values) */
+.tree-item-padding-level-0 { padding-left: 0px; }
+.tree-item-padding-level-1 { padding-left: 20px; }
+.tree-item-padding-level-2 { padding-left: 40px; }
+.tree-item-padding-level-3 { padding-left: 60px; }
+.tree-item-padding-level-4 { padding-left: 80px; }
+.tree-item-padding-level-5 { padding-left: 100px; }
+.tree-item-padding-level-6 { padding-left: 120px; }
 `;
 
         document.head.appendChild(styleElement);
