@@ -1,23 +1,24 @@
 import { App, ItemView, WorkspaceLeaf, Notice } from "obsidian";
-import type MyPlugin from "../../main";
+import type ObsidianTestPlugin from "../../main";
 import { markTestAnswers, ContextLengthExceededError } from "../services/llm";
 import type { GeneratedTest } from "../models/types";
 
 export const QUESTION_VIEW_TYPE = "question-document-view";
 
 export default class QuestionDocumentView extends ItemView {
-  plugin: MyPlugin;
+  plugin: ObsidianTestPlugin;
   description: string;
   generatedTests: GeneratedTest[] = [];
   filePath: string;
   answers: { [key: number]: string } = {};
   markResults: Array<{ marks: number; maxMarks: number; feedback: string } | null> = [];
   scoreSummary = "";
+  textareaElements: HTMLTextAreaElement[] = [];
 
   constructor(
     leaf: WorkspaceLeaf,
     app: App,
-    plugin: MyPlugin,
+    plugin: ObsidianTestPlugin,
     state: { description: string; questions: GeneratedTest[] }
   ) {
     super(leaf);
@@ -40,15 +41,14 @@ export default class QuestionDocumentView extends ItemView {
     this.render();
   }
 
-  async onClose() {}
+  async onClose() {
+    // Clean up any event listeners if needed
+  }
+
 
   private showSpinner(): HTMLDivElement {
     const container = this.containerEl.querySelector(".test-document-container") || this.containerEl;
     const spinnerOverlay = container.createDiv({ cls: "spinner-overlay" });
-    
-    const contentHeight = Math.max(container.scrollHeight || 0);
-    // Height still needs to be set dynamically as it depends on content
-    spinnerOverlay.style.height = contentHeight + "px";
     
     const spinnerFixed = spinnerOverlay.createDiv({ cls: "spinner-fixed-center" });
     
@@ -65,9 +65,37 @@ export default class QuestionDocumentView extends ItemView {
     spinnerOverlay.remove();
   }
 
+  private adjustTextareaHeight(textarea: HTMLTextAreaElement): void {
+    textarea.addClass("textarea-height-auto");
+    
+    const scrollHeight = textarea.scrollHeight;
+    
+    textarea.removeClass("textarea-height-auto");
+    
+    textarea.setAttribute("data-height", scrollHeight + "px");
+    
+    textarea.addClass("textarea-expanded");
+    
+    textarea.style.setProperty("--textarea-height", scrollHeight + "px");
+  }
+
+  private setupAutoResizeTextarea(textarea: HTMLTextAreaElement): void {
+    this.textareaElements.push(textarea);
+    
+    textarea.addClass("auto-height-textarea");
+    
+    this.adjustTextareaHeight(textarea);
+    
+    textarea.addEventListener("input", () => {
+      this.adjustTextareaHeight(textarea);
+    });
+  }
+
   render(): void {
     const container = this.containerEl;
     container.empty();
+    
+    this.textareaElements = [];
     
     container.addClass("test-document-container");
     container.addClass("test-container-relative");
@@ -117,18 +145,11 @@ export default class QuestionDocumentView extends ItemView {
         }
       }
   
-      // Auto-sizing textareas still needs JS calculation
-      const adjustTextareaHeight = () => {
-        textarea.style.height = 'auto';
-        textarea.style.height = (textarea.scrollHeight) + 'px';
-      };
-  
-      setTimeout(adjustTextareaHeight, 0);
+      this.setupAutoResizeTextarea(textarea);
   
       textarea.addEventListener("input", () => {
         this.answers[index] = textarea.value;
         this.saveAnswers();
-        adjustTextareaHeight();
       });
   
       const feedbackEl = questionDiv.createEl("div", { cls: "feedback" });
@@ -180,6 +201,13 @@ export default class QuestionDocumentView extends ItemView {
     }
   
     container.appendChild(formEl);
+    
+    // Initial adjustment for all textareas
+    setTimeout(() => {
+      this.textareaElements.forEach(textarea => {
+        this.adjustTextareaHeight(textarea);
+      });
+    }, 10);
   }
 
   private async handleMarkButtonClick(): Promise<void> {
@@ -210,13 +238,6 @@ export default class QuestionDocumentView extends ItemView {
     }));
   
     const spinnerOverlay = this.showSpinner();
-    
-    const heightUpdateInterval = window.setInterval(() => {
-      const container = this.containerEl.querySelector(".test-document-container") || this.containerEl;
-      const contentHeight = Math.max(container.scrollHeight || 0);
-      spinnerOverlay.style.height = contentHeight + "px";
-    }, 200);
-    
     new Notice(`Marking in progress using ${this.getProviderDisplayName(provider)}...`);
   
     try {
@@ -305,7 +326,6 @@ export default class QuestionDocumentView extends ItemView {
         new Notice(`Error marking answers with ${this.getProviderDisplayName(provider)}. Check console for details.`);
       }
     } finally {
-      window.clearInterval(heightUpdateInterval);
       this.hideSpinner(spinnerOverlay);
     }
   }

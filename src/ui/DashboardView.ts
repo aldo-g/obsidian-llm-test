@@ -1,7 +1,7 @@
-import { App, ItemView, Notice, WorkspaceLeaf } from "obsidian";
+import { App, ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import type { IndexedNote } from "../models/types";
 import { generateTestQuestions, ContextLengthExceededError, markTestAnswers } from "../services/llm";
-import type MyPlugin from "../../main";
+import type ObsidianTestPlugin from "../../main";
 
 export const VIEW_TYPE = "rag-test-view";
 
@@ -16,12 +16,12 @@ interface FileTreeNode {
 
 export default class TestDashboardView extends ItemView {
   pluginData: IndexedNote[];
-  plugin: MyPlugin;
+  plugin: ObsidianTestPlugin;
   isRefreshing = false;
   fileTreeRoot: FileTreeNode = { name: "root", path: "", isFolder: true, children: [] };
   expandedFolders: Set<string> = new Set();
 
-  constructor(leaf: WorkspaceLeaf, app: App, pluginData: IndexedNote[], plugin: MyPlugin) {
+  constructor(leaf: WorkspaceLeaf, app: App, pluginData: IndexedNote[], plugin: ObsidianTestPlugin) {
     super(leaf);
     this.pluginData = pluginData;
     this.plugin = plugin;
@@ -39,12 +39,135 @@ export default class TestDashboardView extends ItemView {
     }
   }
   
+  /**
+   * Creates a refresh icon using Obsidian's createEl
+   */
+  private createRefreshIcon(element: HTMLElement): void {
+    const svgContainer = element.createEl("span", { cls: "icon-container" });
+    setIcon(svgContainer, "refresh-cw");
+    element.createEl("span", { text: "Refresh" });
+  }
+
+  /**
+   * Creates a folder toggle icon
+   */
+  private createFolderToggleIcon(element: HTMLElement, expanded: boolean): void {
+    setIcon(element, expanded ? "chevron-down" : "chevron-right");
+  }
+
+  /**
+   * Creates a folder icon
+   */
+  private createFolderIcon(element: HTMLElement): void {
+    setIcon(element, "folder");
+  }
+
+  /**
+   * Creates a file icon
+   */
+  private createFileIcon(element: HTMLElement): void {
+    setIcon(element, "file-text");
+  }
+
+  /**
+   * Creates a file with lines icon
+   */
+  private createFileWithLinesIcon(element: HTMLElement): void {
+    setIcon(element, "file-text");
+  }
+
+  /**
+   * Creates a badge with icon and text
+   */
+  private createBadge(element: HTMLElement, text: string, colorClass: string = "none"): void {
+    const badge = element.createEl("div", { cls: `status-badge ${colorClass}` });
+    const iconContainer = badge.createEl("span", { cls: "badge-icon" });
+    this.createFileIcon(iconContainer);
+    badge.createEl("span", { text: text });
+  }
+
+  private createProgressRing(element: HTMLElement, percent: number, color: string): void {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "progress-ring");
+    svg.setAttribute("width", "18");
+    svg.setAttribute("height", "18");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    
+    const radius = 8;
+    const circumference = 2 * Math.PI * radius;
+    const dashoffset = circumference * (1 - percent / 100);
+    
+    const circle1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle1.setAttribute("class", "progress-ring-circle");
+    circle1.setAttribute("cx", "12");
+    circle1.setAttribute("cy", "12");
+    circle1.setAttribute("r", radius.toString());
+    
+    const circle2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle2.setAttribute("class", "progress-ring-progress");
+    circle2.setAttribute("cx", "12");
+    circle2.setAttribute("cy", "12");
+    circle2.setAttribute("r", radius.toString());
+    circle2.setAttribute("stroke", color);
+    circle2.setAttribute("stroke-dasharray", `${circumference} ${circumference}`);
+    circle2.setAttribute("stroke-dashoffset", dashoffset.toString());
+    
+    svg.appendChild(circle1);
+    svg.appendChild(circle2);
+    element.appendChild(svg);
+    
+    element.createEl("span", {
+      text: `${Math.round(percent)}%`
+    });
+  }
+
+
+  private createProgressCount(element: HTMLElement, current: number, total: number, color: string): void {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "progress-ring");
+    svg.setAttribute("width", "18");
+    svg.setAttribute("height", "18");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    
+    const radius = 8;
+    const circumference = 2 * Math.PI * radius;
+    const percent = (current / total) * 100;
+    const dashoffset = circumference * (1 - percent / 100);
+    
+    const circle1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle1.setAttribute("class", "progress-ring-circle");
+    circle1.setAttribute("cx", "12");
+    circle1.setAttribute("cy", "12");
+    circle1.setAttribute("r", radius.toString());
+    
+    const circle2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle2.setAttribute("class", "progress-ring-progress");
+    circle2.setAttribute("cx", "12");
+    circle2.setAttribute("cy", "12");
+    circle2.setAttribute("r", radius.toString());
+    circle2.setAttribute("stroke", color);
+    circle2.setAttribute("stroke-dasharray", `${circumference} ${circumference}`);
+    circle2.setAttribute("stroke-dashoffset", dashoffset.toString());
+    
+    svg.appendChild(circle1);
+    svg.appendChild(circle2);
+    element.appendChild(svg);
+    
+    element.createEl("span", {
+      text: `${current}/${total}`
+    });
+  }
+
+  private createSpinner(element: HTMLElement): void {
+    element.createDiv({ cls: "spinner" });
+  }
+  
   private showFullPageSpinner(loadingText: string): HTMLDivElement {
     const container = this.containerEl;
     const loadingOverlay = container.createDiv({ cls: "full-page-overlay" });
     
     const spinnerContainer = loadingOverlay.createDiv({ cls: "loading-container" });
-    spinnerContainer.createDiv({ cls: "spinner" });
+    this.createSpinner(spinnerContainer);
     spinnerContainer.createEl("p", { text: loadingText, cls: "loading-text" });
     
     return loadingOverlay;
@@ -172,17 +295,10 @@ export default class TestDashboardView extends ItemView {
     });
     
     if (this.isRefreshing) {
-      refreshBtn.createDiv({ cls: "spinner" });
+      this.createSpinner(refreshBtn);
       refreshBtn.createSpan({ text: " Refreshing..." });
     } else {
-      refreshBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-refresh-cw">
-          <polyline points="23 4 23 10 17 10"></polyline>
-          <polyline points="1 20 1 14 7 14"></polyline>
-          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-        </svg>
-        <span>Refresh</span>
-      `;
+      this.createRefreshIcon(refreshBtn);
     }
     refreshBtn.disabled = this.isRefreshing;
     refreshBtn.onclick = () => this.handleRefresh();
@@ -238,12 +354,11 @@ export default class TestDashboardView extends ItemView {
     
     const item = container.createEl("div", { cls: "file-tree-item" });
     
-    // Use CSS classes for padding based on level instead of inline styles
-    if (level <= 6) {
+    // Use CSS classes for padding based on level - handle very deep nesting with a max class
+    if (level <= 12) {
       item.addClass(`tree-item-padding-level-${level}`);
     } else {
-      // For very deep nesting (rare), we need to use inline style
-      item.style.paddingLeft = `${level * 20}px`;
+      item.addClass("tree-item-padding-level-max");
     }
     
     if (node.isFolder) {
@@ -253,20 +368,10 @@ export default class TestDashboardView extends ItemView {
         cls: `folder-toggle ${node.expanded ? 'expanded' : 'collapsed'}` 
       });
       
-      toggleBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="${node.expanded ? '6 9 12 15 18 9' : '9 18 15 12 9 6'}"></polyline>
-        </svg>
-      `;
+      this.createFolderToggleIcon(toggleBtn, node.expanded);
       
       const folderIcon = folderRow.createEl("span", { cls: "folder-icon" });
-      folderIcon.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-        </svg>
-      `;
+      this.createFolderIcon(folderIcon);
       
       folderRow.createEl("span", { text: node.name, cls: "folder-name" });
       
@@ -299,16 +404,7 @@ export default class TestDashboardView extends ItemView {
       checkbox.dataset.filePath = node.path;
       
       const fileIcon = fileRow.createEl("span", { cls: "file-icon" });
-      fileIcon.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <polyline points="14 2 14 8 20 8"></polyline>
-          <line x1="16" y1="13" x2="8" y2="13"></line>
-          <line x1="16" y1="17" x2="8" y2="17"></line>
-          <polyline points="10 9 9 9 8 9"></polyline>
-        </svg>
-      `;
+      this.createFileIcon(fileIcon);
       
       fileRow.createEl("span", { text: node.name, cls: "file-name" });
       
@@ -316,14 +412,7 @@ export default class TestDashboardView extends ItemView {
       const statusSpan = fileRow.createEl("span", { cls: "status-icon" });
       
       if (!docState) {
-        const badge = statusSpan.createEl("div", { cls: "status-badge none" });
-        badge.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="badge-icon">
-            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-            <polyline points="13 2 13 9 20 9"></polyline>
-          </svg>
-          <span>No Tests</span>
-        `;
+        this.createBadge(statusSpan, "No Tests", "none");
       } else if (typeof docState.score === "number") {
         const score = docState.score;
         const colorClass = score >= 80 ? "complete" : "partial";
@@ -333,23 +422,7 @@ export default class TestDashboardView extends ItemView {
         });
         
         const badge = button.createEl("div", { cls: `status-badge ${colorClass}` });
-        
-        const percent = Math.round(score);
-        const radius = 8;
-        const circumference = 2 * Math.PI * radius;
-        const dashoffset = circumference * (1 - percent / 100);
-        
-        badge.innerHTML = `
-          <svg class="progress-ring" width="18" height="18" viewBox="0 0 24 24">
-            <circle class="progress-ring-circle" cx="12" cy="12" r="${radius}"/>
-            <circle class="progress-ring-progress" 
-              cx="12" cy="12" r="${radius}"
-              stroke="${score >= 80 ? '#22c55e' : '#f59e0b'}"
-              stroke-dasharray="${circumference} ${circumference}"
-              stroke-dashoffset="${dashoffset}"/>
-          </svg>
-          <span>${percent}%</span>
-        `;
+        this.createProgressRing(badge, Math.round(score), score >= 80 ? '#22c55e' : '#f59e0b');
         
         button.onclick = (e) => {
           this.plugin.openQuestionDoc(node.path);
@@ -359,7 +432,6 @@ export default class TestDashboardView extends ItemView {
         const totalQ = docState.questions.length;
         const answeredCount = Object.values(docState.answers || {}).filter(val => (val as string).trim()).length;
         
-        const percentComplete = Math.round((answeredCount / totalQ) * 100);
         const colorClass = answeredCount === 0 ? "none" : (answeredCount === totalQ ? "complete" : "in-progress");
         
         const button = statusSpan.createEl("button", { 
@@ -369,32 +441,11 @@ export default class TestDashboardView extends ItemView {
         const badge = button.createEl("div", { cls: `status-badge ${colorClass}` });
         
         if (answeredCount === 0) {
-          badge.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="badge-icon">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-            <span>Start</span>
-          `;
+          const iconContainer = badge.createEl("span", { cls: "badge-icon" });
+          this.createFileWithLinesIcon(iconContainer);
+          badge.createEl("span", { text: "Start" });
         } else {
-          const radius = 8;
-          const circumference = 2 * Math.PI * radius;
-          const dashoffset = circumference * (1 - percentComplete / 100);
-          
-          badge.innerHTML = `
-            <svg class="progress-ring" width="18" height="18" viewBox="0 0 24 24">
-              <circle class="progress-ring-circle" cx="12" cy="12" r="${radius}"/>
-              <circle class="progress-ring-progress" 
-                cx="12" cy="12" r="${radius}"
-                stroke="#f59e0b"
-                stroke-dasharray="${circumference} ${circumference}"
-                stroke-dashoffset="${dashoffset}"/>
-            </svg>
-            <span>${answeredCount}/${totalQ}</span>
-          `;
+          this.createProgressCount(badge, answeredCount, totalQ, '#f59e0b');
         }
         
         button.onclick = (e) => {
@@ -475,7 +526,8 @@ export default class TestDashboardView extends ItemView {
         const icon = fileRow?.querySelector<HTMLSpanElement>(".status-icon");
         
         if (icon) {
-          icon.innerHTML = `<div class="spinner"></div>`;
+          icon.empty();
+          this.createSpinner(icon);
         }
   
         tasks.push((async () => {
@@ -495,25 +547,17 @@ export default class TestDashboardView extends ItemView {
             await ragPlugin.saveSettings();
             
             if (icon) {
-              const button = document.createElement('button');
-              button.title = "Open Test Document";
+              icon.empty();
               
-              const badge = document.createElement('div');
-              badge.className = "status-badge none";
-              badge.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="badge-icon">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                  <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-                <span>Start</span>
-              `;
+              const button = icon.createEl('button', {
+                attr: { title: "Open Test Document" }
+              });
               
-              button.appendChild(badge);
-              icon.innerHTML = '';
-              icon.appendChild(button);
+              const badge = button.createEl('div', { cls: "status-badge none" });
+              const iconContainer = badge.createEl("span", { cls: "badge-icon" });
+              this.createFileWithLinesIcon(iconContainer);
+              badge.createEl("span", { text: "Start" });
+              
               button.onclick = (e) => {
                 ragPlugin.openQuestionDoc(filePath);
                 e.stopPropagation();
@@ -523,18 +567,8 @@ export default class TestDashboardView extends ItemView {
             console.error("Error generating tests:", error);
             
             if (icon) {
-              const badge = document.createElement('div');
-              badge.className = "status-badge none";
-              badge.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="badge-icon">
-                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-                  <polyline points="13 2 13 9 20 9"></polyline>
-                </svg>
-                <span>No Tests</span>
-              `;
-              
-              icon.innerHTML = '';
-              icon.appendChild(badge);
+              icon.empty();
+              this.createBadge(icon, "No Tests", "none");
             }
             
             if (error instanceof ContextLengthExceededError) {
@@ -657,7 +691,7 @@ export default class TestDashboardView extends ItemView {
     const loadingOverlay = container.createDiv({ cls: "full-page-overlay" });
     
     const spinnerContainer = loadingOverlay.createDiv({ cls: "loading-container" });
-    spinnerContainer.createDiv({ cls: "spinner" });
+    this.createSpinner(spinnerContainer);
     spinnerContainer.createEl("p", { 
       text: `Marking ${validTestsToMark.length} tests using ${this.getProviderDisplayName(provider)}... This may take a few moments.`, 
       cls: "loading-text" 
