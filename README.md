@@ -131,7 +131,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the Zero-Clause BSD License (0BSD).
+This project is licensed under the MIT License.
 
 ## Acknowledgements
 
