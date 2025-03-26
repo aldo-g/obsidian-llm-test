@@ -156,7 +156,12 @@ export default class ObsidianTestPlugin extends Plugin {
 	}
 
 	openTestDashboard() {
-		this.app.workspace.detachLeavesOfType(DASHBOARD_VIEW_TYPE);
+		const existingLeaves = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
+		if (existingLeaves.length > 0) {
+			this.app.workspace.revealLeaf(existingLeaves[0]);
+			return;
+		}
+		
 		const leaf = this.app.workspace.getLeftLeaf(false);
 		if (!leaf) {
 			new Notice("Could not obtain workspace leaf.");
@@ -175,44 +180,51 @@ export default class ObsidianTestPlugin extends Plugin {
 
 	public openQuestionDoc(filePath: string): void {
 		if (!this.testDocuments[filePath]) {
-		new Notice("No tests found for this note. Generate tests first.");
-		return;
+			new Notice("No tests found for this note. Generate tests first.");
+			return;
 		}
 		const response = this.testDocuments[filePath];
-		this.app.workspace.detachLeavesOfType(QUESTION_VIEW_TYPE);
-	
-		const leaf = this.app.workspace.getLeaf("tab");
+		
+		const existingLeaves = this.app.workspace.getLeavesOfType(QUESTION_VIEW_TYPE);
+		let leaf;
+		
+		if (existingLeaves.length > 0) {
+			leaf = existingLeaves[0];
+		} else {
+			leaf = this.app.workspace.getLeaf("tab");
+		}
+		
 		leaf.setViewState({ type: QUESTION_VIEW_TYPE, active: true });
 		this.app.workspace.revealLeaf(leaf);
-	
+		
 		setTimeout(() => {
 			const view = leaf.view as QuestionDocumentView;
 			if (view) {
-			view.filePath = filePath;
-			view.description = response.description;
-			view.generatedTests = response.questions;
-			view.answers = response.answers || {};
-			
-			if (response.markResults && response.markResults.length > 0) {
-				view.markResults = response.markResults;
+				view.filePath = filePath;
+				view.description = response.description;
+				view.generatedTests = response.questions;
+				view.answers = response.answers || {};
 				
-				if (typeof response.score === "number") {
-				const markResults = response.markResults || [];
-				let totalEarnedMarks = 0;
-				let totalPossibleMarks = 0;
-				
-				markResults.forEach(result => {
-					if (result) {
-					totalEarnedMarks += result.marks;
-					totalPossibleMarks += result.maxMarks;
+				if (response.markResults && response.markResults.length > 0) {
+					view.markResults = response.markResults;
+					
+					if (typeof response.score === "number") {
+						const markResults = response.markResults || [];
+						let totalEarnedMarks = 0;
+						let totalPossibleMarks = 0;
+						
+						markResults.forEach(result => {
+							if (result) {
+								totalEarnedMarks += result.marks;
+								totalPossibleMarks += result.maxMarks;
+							}
+						});
+						
+						view.scoreSummary = `You scored ${totalEarnedMarks} / ${totalPossibleMarks} marks (${response.score.toFixed(1)}%)`;
 					}
-				});
-				
-				view.scoreSummary = `You scored ${totalEarnedMarks} / ${totalPossibleMarks} marks (${response.score.toFixed(1)}%)`;
 				}
-			}
-			
-			view.render();
+				
+				view.render();
 			}
 		}, 200);
 	}
