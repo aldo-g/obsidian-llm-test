@@ -47,8 +47,16 @@ export default class QuestionDocumentView extends ItemView {
 
 
   private showSpinner(): HTMLDivElement {
-    const container = this.containerEl.querySelector(".test-document-container") || this.containerEl;
+    const container = this.containerEl;
+    
     const spinnerOverlay = container.createDiv({ cls: "spinner-overlay" });
+    
+    const contentHeight = Math.max(
+      container.scrollHeight,
+      container.querySelector(".test-document-container")?.scrollHeight || 0
+    );
+    
+    spinnerOverlay.style.height = `${contentHeight}px`;
     
     const spinnerFixed = spinnerOverlay.createDiv({ cls: "spinner-fixed-center" });
     
@@ -62,7 +70,9 @@ export default class QuestionDocumentView extends ItemView {
   }
   
   private hideSpinner(spinnerOverlay: HTMLDivElement) {
-    spinnerOverlay.remove();
+    if (spinnerOverlay) {
+      spinnerOverlay.detach();
+    }
   }
 
   private adjustTextareaHeight(textarea: HTMLTextAreaElement): void {

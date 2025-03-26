@@ -573,6 +573,7 @@
   z-index: 1000;
   background-color: rgba(0, 0, 0, 0.7);
   pointer-events: all;
+  min-height: 100%; /* Ensure it's at least as tall as the container */
 }
 
 .spinner-fixed-center {
@@ -647,10 +648,6 @@
 
 .answer-input {
   transition: height 0.1s ease-out, border-color 0.2s ease;
-}
-
-.test-container-relative {
-  position: relative;
 }
 
 textarea.answer-input {

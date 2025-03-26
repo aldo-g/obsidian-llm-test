@@ -13,9 +13,7 @@ export default class SettingsTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		
-		containerEl.createEl("h2", { text: "RAG Test Plugin Settings" });
-		
+				
 		new Setting(containerEl)
 			.setName("LLM provider")
 			.setDesc("Select which LLM provider you want to use for generating and marking tests")
@@ -192,7 +190,7 @@ export default class SettingsTab extends PluginSettingTab {
 		}
 		
 		// About section
-		containerEl.createEl("h3", { text: "About API Keys" });
+		new Setting(containerEl).setName("About API keys").setHeading();
 		const apiInfoDiv = containerEl.createDiv({ cls: "api-key-info" });
 		apiInfoDiv.createEl("p", { 
 			text: "Your API keys are stored locally in your vault and are only used to communicate with the selected LLM provider."
