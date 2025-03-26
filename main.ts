@@ -83,12 +83,11 @@ export default class ObsidianTestPlugin extends Plugin {
 		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes, this));
 		this.registerView(QUESTION_VIEW_TYPE, (leaf) => new QuestionDocumentView(leaf, this.app, this, { description: "", questions: [] }));
 		
-		this.addRibbonIcon("flask-conical", "Test Dashboard", () => this.openTestDashboard());
-		this.addStatusBarItem().setText("Test Plugin Active");
+		this.addRibbonIcon("flask-conical", "Test dashboard", () => this.openTestDashboard());
 		
 		this.addCommand({
 			id: "open-test-dashboard",
-			name: "Open Test Dashboard",
+			name: "Open test dashboard",
 			callback: () => {
 				this.openTestDashboard();
 			},

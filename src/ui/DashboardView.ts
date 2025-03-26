@@ -29,7 +29,7 @@ export default class TestDashboardView extends ItemView {
   }
 
   getViewType() { return VIEW_TYPE; }
-  getDisplayText() { return "Test Dashboard"; }
+  getDisplayText() { return "Test dashboard"; }
 
   async onOpen() { 
     if (!this.pluginData || this.pluginData.length === 0) {
@@ -273,7 +273,7 @@ export default class TestDashboardView extends ItemView {
     if (!ragPlugin) {
       container.createEl("div", { 
         cls: "empty-state",
-        text: "Test Plugin not found." 
+        text: "Test plugin not found." 
       });
       return;
     }
@@ -281,7 +281,7 @@ export default class TestDashboardView extends ItemView {
     const header = container.createEl("div", { cls: "dashboard-header" });
     
     header.createEl("h2", { 
-      text: "Test Dashboard",
+      text: "Test dashboard",
       cls: "dashboard-title" 
     });
     
@@ -304,7 +304,7 @@ export default class TestDashboardView extends ItemView {
     refreshBtn.onclick = () => this.handleRefresh();
     
     const createBtn = buttonContainer.createEl("button", { 
-      text: "Create Tests",
+      text: "Create tests",
       cls: "dashboard-button primary" 
     });
     createBtn.disabled = true;
@@ -330,7 +330,7 @@ export default class TestDashboardView extends ItemView {
     
     const markAllBtn = markAllContainer.createEl("button", {
       cls: "dashboard-button primary mark-all-button",
-      text: "Mark All Tests"
+      text: "Mark all tests"
     });
     
     const hasPartialTests = Object.entries(this.plugin.testDocuments).some(([path, doc]) => {
@@ -418,7 +418,7 @@ export default class TestDashboardView extends ItemView {
         const colorClass = score >= 80 ? "complete" : "partial";
         
         const button = statusSpan.createEl("button", { 
-          attr: { title: "Open Test Document" } 
+          attr: { title: "Open test document" } 
         });
         
         const badge = button.createEl("div", { cls: `status-badge ${colorClass}` });
@@ -435,7 +435,7 @@ export default class TestDashboardView extends ItemView {
         const colorClass = answeredCount === 0 ? "none" : (answeredCount === totalQ ? "complete" : "in-progress");
         
         const button = statusSpan.createEl("button", { 
-          attr: { title: "Open Test Document" } 
+          attr: { title: "Open test document" } 
         });
         
         const badge = button.createEl("div", { cls: `status-badge ${colorClass}` });
@@ -550,7 +550,7 @@ export default class TestDashboardView extends ItemView {
               icon.empty();
               
               const button = icon.createEl('button', {
-                attr: { title: "Open Test Document" }
+                attr: { title: "Open test document" }
               });
               
               const badge = button.createEl('div', { cls: "status-badge none" });

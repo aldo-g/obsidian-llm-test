@@ -34,7 +34,7 @@ export default class QuestionDocumentView extends ItemView {
   }
 
   getDisplayText() {
-    return this.filePath ? `Test: ${this.filePath}` : "Generated Test Questions";
+    return this.filePath ? `Test: ${this.filePath}` : "Generated test questions";
   }
 
   async onOpen() {
@@ -309,7 +309,7 @@ export default class QuestionDocumentView extends ItemView {
         });
         
         errorContainer.createEl("h3", {
-          text: `Document Too Large for ${this.getProviderDisplayName(provider)}`,
+          text: `Document too large for ${this.getProviderDisplayName(provider)}`,
         });
         
         errorContainer.createEl("p", {

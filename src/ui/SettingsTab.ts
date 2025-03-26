@@ -17,7 +17,7 @@ export default class SettingsTab extends PluginSettingTab {
 		containerEl.createEl("h2", { text: "RAG Test Plugin Settings" });
 		
 		new Setting(containerEl)
-			.setName("LLM Provider")
+			.setName("LLM provider")
 			.setDesc("Select which LLM provider you want to use for generating and marking tests")
 			.addDropdown((dropdown: DropdownComponent) => {
 				dropdown
@@ -37,7 +37,7 @@ export default class SettingsTab extends PluginSettingTab {
 		// OpenAI API Key and Models
 		if (this.plugin.settings.llmProvider === "openai") {
 			new Setting(containerEl)
-				.setName("OpenAI API Key")
+				.setName("OpenAI API key")
 				.setDesc("Enter your OpenAI API key for test generation and marking")
 				.addText((text) =>
 					text
@@ -50,7 +50,7 @@ export default class SettingsTab extends PluginSettingTab {
 				);
 				
 			new Setting(containerEl)
-				.setName("OpenAI Model")
+				.setName("OpenAI model")
 				.setDesc("Select which OpenAI model to use")
 				.addDropdown((dropdown: DropdownComponent) => {
 					dropdown
@@ -69,7 +69,7 @@ export default class SettingsTab extends PluginSettingTab {
 		// Anthropic (Claude) API Key and Models
 		if (this.plugin.settings.llmProvider === "anthropic") {
 			new Setting(containerEl)
-				.setName("Anthropic Claude API Key")
+				.setName("Anthropic Claude API key")
 				.setDesc("Enter your Anthropic API key for Claude")
 				.addText((text) =>
 					text
@@ -82,7 +82,7 @@ export default class SettingsTab extends PluginSettingTab {
 				);
 				
 			new Setting(containerEl)
-				.setName("Claude Model")
+				.setName("Claude model")
 				.setDesc("Select which Claude model to use")
 				.addDropdown((dropdown: DropdownComponent) => {
 					dropdown
@@ -101,7 +101,7 @@ export default class SettingsTab extends PluginSettingTab {
 		// DeepSeek API Key and Models
 		if (this.plugin.settings.llmProvider === "deepseek") {
 			new Setting(containerEl)
-				.setName("DeepSeek API Key")
+				.setName("DeepSeek API key")
 				.setDesc("Enter your DeepSeek API key")
 				.addText((text) =>
 					text
@@ -114,7 +114,7 @@ export default class SettingsTab extends PluginSettingTab {
 				);
 				
 			new Setting(containerEl)
-				.setName("DeepSeek Model")
+				.setName("DeepSeek model")
 				.setDesc("Select which DeepSeek model to use")
 				.addDropdown((dropdown: DropdownComponent) => {
 					dropdown
@@ -131,7 +131,7 @@ export default class SettingsTab extends PluginSettingTab {
 		// Gemini API Key and Models
 		if (this.plugin.settings.llmProvider === "gemini") {
 			new Setting(containerEl)
-				.setName("Google Gemini API Key")
+				.setName("Google Gemini API key")
 				.setDesc("Enter your Google API key for Gemini")
 				.addText((text) =>
 					text
@@ -144,7 +144,7 @@ export default class SettingsTab extends PluginSettingTab {
 				);
 				
 			new Setting(containerEl)
-				.setName("Gemini Model")
+				.setName("Gemini model")
 				.setDesc("Select which Gemini model to use")
 				.addDropdown((dropdown: DropdownComponent) => {
 					dropdown
@@ -162,7 +162,7 @@ export default class SettingsTab extends PluginSettingTab {
 		// Mistral API Key and Models
 		if (this.plugin.settings.llmProvider === "mistral") {
 			new Setting(containerEl)
-				.setName("Mistral API Key")
+				.setName("Mistral API key")
 				.setDesc("Enter your Mistral API key")
 				.addText((text) =>
 					text
@@ -175,7 +175,7 @@ export default class SettingsTab extends PluginSettingTab {
 				);
 				
 			new Setting(containerEl)
-				.setName("Mistral Model")
+				.setName("Mistral model")
 				.setDesc("Select which Mistral model to use")
 				.addDropdown((dropdown: DropdownComponent) => {
 					dropdown
