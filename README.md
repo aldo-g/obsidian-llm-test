@@ -1,4 +1,4 @@
-# Obsidian Test Plugin
+# LLM Testing Plugin
 
 Test your knowledge with AI-generated questions based on your Obsidian notes. This plugin helps you study more effectively by creating contextually relevant questions from your notes and providing instant feedback on your answers, using various Large Language Models.
 
