@@ -146,7 +146,6 @@ export default class SettingsTab extends PluginSettingTab {
 				.setDesc("Select which Gemini model to use")
 				.addDropdown((dropdown: DropdownComponent) => {
 					dropdown
-						.addOption("gemini-pro", "Gemini Pro")
 						.addOption("gemini-1.5-pro", "Gemini 1.5 Pro")
 						.addOption("gemini-1.5-flash", "Gemini 1.5 Flash")
 						.setValue(this.plugin.settings.models.gemini || "gemini-pro")

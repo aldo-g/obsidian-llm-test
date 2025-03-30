@@ -49,7 +49,7 @@ You can choose from various models for each provider:
 - **OpenAI**: GPT-3.5 Turbo, GPT-4, GPT-4 Turbo, GPT-4o
 - **Anthropic Claude**: Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku, Claude 3.5 Sonnet
 - **Mistral AI**: Mistral Tiny, Mistral Small, Mistral Medium, Mistral Large
-- **Google Gemini**: Gemini Pro, Gemini 1.5 Pro, Gemini 1.5 Flash
+- **Google Gemini**: Gemini 1.5 Pro, Gemini 1.5 Flash
 - **DeepSeek**: DeepSeek Chat, DeepSeek Coder
 
 Models with larger context windows (like GPT-4o, Claude 3 Opus, or Gemini 1.5 Pro) can handle longer notes, while smaller models may be more cost-effective for frequent testing.
