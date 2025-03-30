@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, DropdownComponent } from "obsidian";
+import { App, PluginSettingTab, Setting, DropdownComponent, Notice } from "obsidian";
 import type MyPlugin from "../../main";
 import type { LLMProvider } from "../../main";
 
@@ -20,11 +20,10 @@ export default class SettingsTab extends PluginSettingTab {
 			.addDropdown((dropdown: DropdownComponent) => {
 				dropdown
 					.addOption("openai", "OpenAI")
-					.addOption("anthropic", "Anthropic (Claude)")
 					.addOption("deepseek", "DeepSeek")
 					.addOption("gemini", "Google (Gemini)")
 					.addOption("mistral", "Mistral AI")
-					.setValue(this.plugin.settings.llmProvider)
+					.setValue(this.plugin.settings.llmProvider === "anthropic" ? "openai" : this.plugin.settings.llmProvider)
 					.onChange(async (value: LLMProvider) => {
 						this.plugin.settings.llmProvider = value;
 						await this.plugin.saveSettings();
@@ -32,21 +31,9 @@ export default class SettingsTab extends PluginSettingTab {
 					});
 			});
 		
-		// OpenAI API Key and Models
+		// OpenAI Settings
 		if (this.plugin.settings.llmProvider === "openai") {
-			new Setting(containerEl)
-				.setName("OpenAI API key")
-				.setDesc("Enter your OpenAI API key for test generation and marking")
-				.addText((text) =>
-					text
-						.setPlaceholder("sk-...")
-						.setValue(this.plugin.settings.apiKeys.openai)
-						.onChange(async (value: string) => {
-							this.plugin.settings.apiKeys.openai = value;
-							await this.plugin.saveSettings();
-						})
-				);
-				
+			// Model selection
 			new Setting(containerEl)
 				.setName("OpenAI model")
 				.setDesc("Select which OpenAI model to use")
@@ -62,55 +49,52 @@ export default class SettingsTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						});
 				});
-		}
-		
-		// Anthropic (Claude) API Key and Models
-		if (this.plugin.settings.llmProvider === "anthropic") {
+				
+			// API Key
 			new Setting(containerEl)
-				.setName("Anthropic Claude API key")
-				.setDesc("Enter your Anthropic API key for Claude")
+				.setName("OpenAI API key")
+				.setDesc("Enter your OpenAI API key for test generation and marking")
 				.addText((text) =>
 					text
-						.setPlaceholder("sk-ant-...")
-						.setValue(this.plugin.settings.apiKeys.anthropic)
-						.onChange(async (value: string) => {
-							this.plugin.settings.apiKeys.anthropic = value;
-							await this.plugin.saveSettings();
-						})
-				);
-				
-			new Setting(containerEl)
-				.setName("Claude model")
-				.setDesc("Select which Claude model to use")
-				.addDropdown((dropdown: DropdownComponent) => {
-					dropdown
-						.addOption("claude-3-opus-20240229", "Claude 3 Opus")
-						.addOption("claude-3-sonnet-20240229", "Claude 3 Sonnet")
-						.addOption("claude-3-haiku-20240307", "Claude 3 Haiku")
-						.addOption("claude-3-5-sonnet-20240620", "Claude 3.5 Sonnet")
-						.setValue(this.plugin.settings.models.anthropic || "claude-3-opus-20240229")
-						.onChange(async (value: string) => {
-							this.plugin.settings.models.anthropic = value;
-							await this.plugin.saveSettings();
+						.setPlaceholder("sk-...")
+						.setValue(this.plugin.settings.apiKeys.openai)
+						.inputEl.type = "password" // Make this a password field
+				)
+				.addExtraButton((button) => {
+					button
+						.setIcon("eye")
+						.setTooltip("Toggle visibility")
+						.onClick(() => {
+							const inputEl = button.extraSettingsEl.parentElement?.querySelector("input");
+							if (inputEl) {
+								if (inputEl.type === "password") {
+									inputEl.type = "text";
+									button.setIcon("eye-off");
+								} else {
+									inputEl.type = "password";
+									button.setIcon("eye");
+								}
+							}
+						});
+				})
+				.addExtraButton((button) => {
+					button
+						.setIcon("save")
+						.setTooltip("Save")
+						.onClick(async () => {
+							const inputEl = button.extraSettingsEl.parentElement?.querySelector("input");
+							if (inputEl) {
+								this.plugin.settings.apiKeys.openai = inputEl.value;
+								await this.plugin.saveSettings();
+								new Notice("OpenAI API key saved");
+							}
 						});
 				});
 		}
 		
-		// DeepSeek API Key and Models
+		// DeepSeek Settings
 		if (this.plugin.settings.llmProvider === "deepseek") {
-			new Setting(containerEl)
-				.setName("DeepSeek API key")
-				.setDesc("Enter your DeepSeek API key")
-				.addText((text) =>
-					text
-						.setPlaceholder("sk-...")
-						.setValue(this.plugin.settings.apiKeys.deepseek)
-						.onChange(async (value: string) => {
-							this.plugin.settings.apiKeys.deepseek = value;
-							await this.plugin.saveSettings();
-						})
-				);
-				
+			// Model selection
 			new Setting(containerEl)
 				.setName("DeepSeek model")
 				.setDesc("Select which DeepSeek model to use")
@@ -124,23 +108,52 @@ export default class SettingsTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						});
 				});
-		}
-		
-		// Gemini API Key and Models
-		if (this.plugin.settings.llmProvider === "gemini") {
+				
+			// API Key
 			new Setting(containerEl)
-				.setName("Google Gemini API key")
-				.setDesc("Enter your Google API key for Gemini")
+				.setName("DeepSeek API key")
+				.setDesc("Enter your DeepSeek API key")
 				.addText((text) =>
 					text
-						.setPlaceholder("API key...")
-						.setValue(this.plugin.settings.apiKeys.gemini)
-						.onChange(async (value: string) => {
-							this.plugin.settings.apiKeys.gemini = value;
-							await this.plugin.saveSettings();
-						})
-				);
-				
+						.setPlaceholder("sk-...")
+						.setValue(this.plugin.settings.apiKeys.deepseek)
+						.inputEl.type = "password" // Make this a password field
+				)
+				.addExtraButton((button) => {
+					button
+						.setIcon("eye")
+						.setTooltip("Toggle visibility")
+						.onClick(() => {
+							const inputEl = button.extraSettingsEl.parentElement?.querySelector("input");
+							if (inputEl) {
+								if (inputEl.type === "password") {
+									inputEl.type = "text";
+									button.setIcon("eye-off");
+								} else {
+									inputEl.type = "password";
+									button.setIcon("eye");
+								}
+							}
+						});
+				})
+				.addExtraButton((button) => {
+					button
+						.setIcon("save")
+						.setTooltip("Save")
+						.onClick(async () => {
+							const inputEl = button.extraSettingsEl.parentElement?.querySelector("input");
+							if (inputEl) {
+								this.plugin.settings.apiKeys.deepseek = inputEl.value;
+								await this.plugin.saveSettings();
+								new Notice("DeepSeek API key saved");
+							}
+						});
+				});
+		}
+		
+		// Gemini Settings
+		if (this.plugin.settings.llmProvider === "gemini") {
+			// Model selection
 			new Setting(containerEl)
 				.setName("Gemini model")
 				.setDesc("Select which Gemini model to use")
@@ -154,23 +167,52 @@ export default class SettingsTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						});
 				});
-		}
-		
-		// Mistral API Key and Models
-		if (this.plugin.settings.llmProvider === "mistral") {
+				
+			// API Key
 			new Setting(containerEl)
-				.setName("Mistral API key")
-				.setDesc("Enter your Mistral API key")
+				.setName("Google Gemini API key")
+				.setDesc("Enter your Google API key for Gemini")
 				.addText((text) =>
 					text
-						.setPlaceholder("...")
-						.setValue(this.plugin.settings.apiKeys.mistral)
-						.onChange(async (value: string) => {
-							this.plugin.settings.apiKeys.mistral = value;
-							await this.plugin.saveSettings();
-						})
-				);
-				
+						.setPlaceholder("API key...")
+						.setValue(this.plugin.settings.apiKeys.gemini)
+						.inputEl.type = "password" // Make this a password field
+				)
+				.addExtraButton((button) => {
+					button
+						.setIcon("eye")
+						.setTooltip("Toggle visibility")
+						.onClick(() => {
+							const inputEl = button.extraSettingsEl.parentElement?.querySelector("input");
+							if (inputEl) {
+								if (inputEl.type === "password") {
+									inputEl.type = "text";
+									button.setIcon("eye-off");
+								} else {
+									inputEl.type = "password";
+									button.setIcon("eye");
+								}
+							}
+						});
+				})
+				.addExtraButton((button) => {
+					button
+						.setIcon("save")
+						.setTooltip("Save")
+						.onClick(async () => {
+							const inputEl = button.extraSettingsEl.parentElement?.querySelector("input");
+							if (inputEl) {
+								this.plugin.settings.apiKeys.gemini = inputEl.value;
+								await this.plugin.saveSettings();
+								new Notice("Gemini API key saved");
+							}
+						});
+				});
+		}
+		
+		// Mistral Settings
+		if (this.plugin.settings.llmProvider === "mistral") {
+			// Model selection
 			new Setting(containerEl)
 				.setName("Mistral model")
 				.setDesc("Select which Mistral model to use")
@@ -184,6 +226,47 @@ export default class SettingsTab extends PluginSettingTab {
 						.onChange(async (value: string) => {
 							this.plugin.settings.models.mistral = value;
 							await this.plugin.saveSettings();
+						});
+				});
+				
+			// API Key
+			new Setting(containerEl)
+				.setName("Mistral API key")
+				.setDesc("Enter your Mistral API key")
+				.addText((text) =>
+					text
+						.setPlaceholder("...")
+						.setValue(this.plugin.settings.apiKeys.mistral)
+						.inputEl.type = "password" // Make this a password field
+				)
+				.addExtraButton((button) => {
+					button
+						.setIcon("eye")
+						.setTooltip("Toggle visibility")
+						.onClick(() => {
+							const inputEl = button.extraSettingsEl.parentElement?.querySelector("input");
+							if (inputEl) {
+								if (inputEl.type === "password") {
+									inputEl.type = "text";
+									button.setIcon("eye-off");
+								} else {
+									inputEl.type = "password";
+									button.setIcon("eye");
+								}
+							}
+						});
+				})
+				.addExtraButton((button) => {
+					button
+						.setIcon("save")
+						.setTooltip("Save")
+						.onClick(async () => {
+							const inputEl = button.extraSettingsEl.parentElement?.querySelector("input");
+							if (inputEl) {
+								this.plugin.settings.apiKeys.mistral = inputEl.value;
+								await this.plugin.saveSettings();
+								new Notice("Mistral API key saved");
+							}
 						});
 				});
 		}
@@ -205,13 +288,6 @@ export default class SettingsTab extends PluginSettingTab {
 			providerInfoDiv.createEl("p", { 
 				text: "GPT-4 and GPT-4o provide the best results but require a higher API usage tier."
 			});
-		} else if (this.plugin.settings.llmProvider === "anthropic") {
-			providerInfoDiv.createEl("p", { 
-				text: "Anthropic API keys can be obtained from: https://console.anthropic.com/settings/keys"
-			});
-			providerInfoDiv.createEl("p", { 
-				text: "Claude models excel at understanding context and providing helpful feedback. Claude 3 Opus has the largest context window."
-			});
 		} else if (this.plugin.settings.llmProvider === "deepseek") {
 			providerInfoDiv.createEl("p", { 
 				text: "DeepSeek API keys can be obtained from the DeepSeek website."
@@ -224,6 +300,9 @@ export default class SettingsTab extends PluginSettingTab {
 				text: "Gemini 1.5 Pro offers a larger context window and improved capabilities over Gemini Pro."
 			});
 		} else if (this.plugin.settings.llmProvider === "mistral") {
+			providerInfoDiv.createEl("p", { 
+				text: "WARNING: Mistral is currently not effective at marking answers"
+			});
 			providerInfoDiv.createEl("p", { 
 				text: "Mistral API keys can be obtained from: https://console.mistral.ai/api-keys/"
 			});
