@@ -235,7 +235,8 @@ export default class QuestionDocumentView extends ItemView {
     const provider = this.plugin.settings.llmProvider;
     const apiKeys = this.plugin.settings.apiKeys;
     
-    if (!apiKeys[provider]) {
+    // Skip API key check for Ollama
+    if (provider !== "ollama" && !apiKeys[provider]) {
       new Notice(`${this.getProviderDisplayName(provider)} API key missing. Please set it in plugin settings.`);
       return;
     }
@@ -256,7 +257,8 @@ export default class QuestionDocumentView extends ItemView {
         qnaPairs, 
         provider,
         apiKeys,
-        this.plugin.settings.models
+        this.plugin.settings.models,
+        this.plugin.settings.ollamaSettings
       );
       
       this.markResults = new Array(this.generatedTests.length).fill(null);
@@ -332,8 +334,30 @@ export default class QuestionDocumentView extends ItemView {
         });
         
         this.render();
+      } else if (err.message?.includes("Failed to parse") || err.message?.includes("JSON")) {
+        const modelName = this.plugin.settings.models[provider];
+        new Notice(`❌ Model Compatibility Error: "${modelName}" failed to generate proper JSON. Try a more advanced model.`, 10000);
+        
+        const errorContainer = this.containerEl.createDiv({
+          cls: "error-message",
+        });
+        
+        errorContainer.createEl("h3", {
+          text: `Model Compatibility Issue: ${modelName}`,
+        });
+        
+        errorContainer.createEl("p", {
+          text: "The model failed to generate properly structured output required for test marking.",
+        });
+        
+        errorContainer.createEl("p", {
+          cls: "suggestion",
+          text: "Some models (especially smaller or older ones) struggle with following specific JSON formatting instructions. Try using a more capable model like llama3 or gemma3, which are better at structured outputs.",
+        });
+        
+        this.render();
       } else {
-        new Notice(`Error marking answers with ${this.getProviderDisplayName(provider)}. Check console for details.`);
+        new Notice(`Error marking answers with ${this.getProviderDisplayName(provider)}: ${err.message}`, 5000);
       }
     } finally {
       this.hideSpinner(spinnerOverlay);
@@ -352,6 +376,8 @@ export default class QuestionDocumentView extends ItemView {
         return "Gemini";
       case "mistral":
         return "Mistral";
+      case "ollama":
+        return "Ollama";
       default:
         return provider.charAt(0).toUpperCase() + provider.slice(1);
     }

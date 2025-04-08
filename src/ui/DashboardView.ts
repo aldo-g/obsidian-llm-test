@@ -368,7 +368,7 @@ export default class TestDashboardView extends ItemView {
         cls: `folder-toggle ${node.expanded ? 'expanded' : 'collapsed'}` 
       });
       
-      this.createFolderToggleIcon(toggleBtn, node.expanded);
+      this.createFolderToggleIcon(toggleBtn, node.expanded || false);
       
       const folderIcon = folderRow.createEl("span", { cls: "folder-icon" });
       this.createFolderIcon(folderIcon);
@@ -503,7 +503,8 @@ export default class TestDashboardView extends ItemView {
     const provider = ragPlugin.settings.llmProvider;
     const apiKey = ragPlugin.settings.apiKeys[provider];
     
-    if (!apiKey) {
+    // Skip API key check for Ollama
+    if (provider !== "ollama" && !apiKey) {
       new Notice(`❌ ${this.getProviderDisplayName(provider)} API Key is missing! Please set it in the plugin settings.`);
       return;
     }
@@ -536,7 +537,8 @@ export default class TestDashboardView extends ItemView {
               [note], 
               ragPlugin.settings.llmProvider,
               ragPlugin.settings.apiKeys,
-              ragPlugin.settings.models
+              ragPlugin.settings.models,
+              ragPlugin.settings.ollamaSettings
             );
             
             ragPlugin.testDocuments[filePath] = { 
@@ -573,8 +575,11 @@ export default class TestDashboardView extends ItemView {
             
             if (error instanceof ContextLengthExceededError) {
               new Notice(`❌ ${filePath}: ${error.message}`, 10000);
+            } else if (error.message?.includes("Failed to parse JSON")) {
+              const modelName = ragPlugin.settings.models[ragPlugin.settings.llmProvider];
+              new Notice(`❌ ${filePath}: Model "${modelName}" failed to generate proper JSON. Please try a more capable model.`, 10000);
             } else {
-              new Notice(`❌ Error generating tests for ${filePath}`);
+              new Notice(`❌ Error generating tests for ${filePath}: ${error.message}`, 5000);
             }
           }
         })());
@@ -611,6 +616,8 @@ export default class TestDashboardView extends ItemView {
         return "Gemini";
       case "mistral":
         return "Mistral";
+      case "ollama":
+        return "Ollama";
       default:
         return provider.charAt(0).toUpperCase() + provider.slice(1);
     }
@@ -626,7 +633,8 @@ export default class TestDashboardView extends ItemView {
     const provider = ragPlugin.settings.llmProvider;
     const apiKeys = ragPlugin.settings.apiKeys;
     
-    if (!apiKeys[provider]) {
+    // Skip API key check for Ollama
+    if (provider !== "ollama" && !apiKeys[provider]) {
       new Notice(`❌ ${this.getProviderDisplayName(provider)} API Key is missing! Please set it in the plugin settings.`);
       return;
     }
@@ -724,7 +732,8 @@ export default class TestDashboardView extends ItemView {
             qnaPairs, 
             provider,
             apiKeys,
-            this.plugin.settings.models
+            this.plugin.settings.models,
+            this.plugin.settings.ollamaSettings
           );
           
           let totalPossibleMarks = 0;

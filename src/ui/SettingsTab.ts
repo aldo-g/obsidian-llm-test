@@ -23,6 +23,7 @@ export default class SettingsTab extends PluginSettingTab {
 					.addOption("deepseek", "DeepSeek")
 					.addOption("gemini", "Google (Gemini)")
 					.addOption("mistral", "Mistral AI")
+					.addOption("ollama", "Ollama (Local)")
 					.setValue(this.plugin.settings.llmProvider === "anthropic" ? "openai" : this.plugin.settings.llmProvider)
 					.onChange(async (value: LLMProvider) => {
 						this.plugin.settings.llmProvider = value;
@@ -269,6 +270,56 @@ export default class SettingsTab extends PluginSettingTab {
 							}
 						});
 				});
+		}
+
+		// Ollama Settings
+		if (this.plugin.settings.llmProvider === "ollama") {
+			// Ollama Server URL
+			new Setting(containerEl)
+				.setName("Ollama server URL")
+				.setDesc("Enter the URL of your Ollama server")
+				.addText((text) =>
+					text
+						.setPlaceholder("http://localhost:11434")
+						.setValue(this.plugin.settings.ollamaSettings?.url || "http://localhost:11434")
+						.onChange(async (value) => {
+							if (!this.plugin.settings.ollamaSettings) {
+								this.plugin.settings.ollamaSettings = { url: value };
+							} else {
+								this.plugin.settings.ollamaSettings.url = value;
+							}
+							await this.plugin.saveSettings();
+						})
+				);
+			
+			// Model selection
+			new Setting(containerEl)
+				.setName("Ollama model")
+				.setDesc("Enter the name of the Ollama model to use")
+				.addText((text) =>
+					text
+						.setPlaceholder("llama3")
+						.setValue(this.plugin.settings.models.ollama || "llama3")
+						.onChange(async (value) => {
+							this.plugin.settings.models.ollama = value;
+							await this.plugin.saveSettings();
+						})
+				);
+			
+			// Add information about Ollama models
+			const providerInfoDiv = containerEl.createDiv({ cls: "provider-info" });
+			providerInfoDiv.createEl("p", { 
+				text: "Ollama lets you run LLMs locally. Make sure Ollama is installed and running before using this option."
+			});
+			providerInfoDiv.createEl("p", { 
+				text: "Download Ollama from: https://ollama.com/"
+			});
+			providerInfoDiv.createEl("p", { 
+				text: "Common models: llama3, mistral, gemma, codellama, llama3:8b, etc."
+			});
+			providerInfoDiv.createEl("p", { 
+				text: "Run 'ollama pull [model]' in your terminal to download models before using them with this plugin."
+			});
 		}
 		
 		// About section

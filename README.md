@@ -6,10 +6,10 @@ Test your knowledge with AI-generated questions based on your Obsidian notes. Th
 
 - **AI-Generated Questions**: Automatically create test questions based on your notes using multiple LLM providers:
   - OpenAI (GPT-3.5, GPT-4, GPT-4o)
-  - Anthropic Claude (Claude 3 Opus, Sonnet, Haiku, Claude 3.5 Sonnet)
   - Mistral AI (Tiny, Small, Medium, Large)
   - Google Gemini (Pro, 1.5 Pro, 1.5 Flash)
   - DeepSeek (Chat, Coder)
+  - Ollama (Local models like Llama 3, Gemma, etc.)
 - **Knowledge Assessment**: Test your understanding with customized questions at different difficulty levels
 - **Instant Feedback**: Get immediate feedback on your answers
 - **Score Tracking**: Track your progress with detailed scoring
@@ -37,17 +37,16 @@ Test your knowledge with AI-generated questions based on your Obsidian notes. Th
 To use this plugin, you'll need an API key from one of the supported providers:
 
 - **OpenAI**: Get your API key from [OpenAI Platform](https://platform.openai.com/account/api-keys)
-- **Anthropic Claude**: Get your API key from [Anthropic Console](https://console.anthropic.com/settings/keys)
 - **Mistral AI**: Get your API key from [Mistral Console](https://console.mistral.ai/api-keys/)
 - **Google Gemini**: Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 - **DeepSeek**: Get your API key from the DeepSeek website
+- **Ollama**: No API key required. Download and install Ollama from [Ollama.com](https://ollama.com) and run the models locally
 
 ## Model Selection
 
 You can choose from various models for each provider:
 
 - **OpenAI**: GPT-3.5 Turbo, GPT-4, GPT-4 Turbo, GPT-4o
-- **Anthropic Claude**: Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku, Claude 3.5 Sonnet
 - **Mistral AI**: Mistral Tiny, Mistral Small, Mistral Medium, Mistral Large
 - **Google Gemini**: Gemini 1.5 Pro, Gemini 1.5 Flash
 - **DeepSeek**: DeepSeek Chat, DeepSeek Coder

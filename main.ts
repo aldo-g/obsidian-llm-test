@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
 import TestDashboardView, { VIEW_TYPE as DASHBOARD_VIEW_TYPE } from "./src/ui/DashboardView";
 import QuestionDocumentView, { QUESTION_VIEW_TYPE } from "./src/ui/QuestionView";
 import SettingsTab from "./src/ui/SettingsTab";
@@ -16,7 +16,7 @@ export interface IndexedNote {
 	testStatus: TestStatus;
 }
 
-export type LLMProvider = "openai" | "anthropic" | "deepseek" | "gemini" | "mistral";
+export type LLMProvider = "openai" | "anthropic" | "deepseek" | "gemini" | "mistral" | "ollama";
 
 interface ObsidianTestPluginSettings {
 	mySetting: string;
@@ -27,6 +27,7 @@ interface ObsidianTestPluginSettings {
 		deepseek: string;
 		gemini: string;
 		mistral: string;
+		ollama: string;
 	};
 	models: {
 		openai: string;
@@ -34,6 +35,10 @@ interface ObsidianTestPluginSettings {
 		deepseek: string;
 		gemini: string;
 		mistral: string;
+		ollama: string;
+	};
+	ollamaSettings: {
+		url: string;
 	};
 }
 
@@ -45,14 +50,19 @@ const DEFAULT_SETTINGS: ObsidianTestPluginSettings = {
 		anthropic: "",
 		deepseek: "",
 		gemini: "",
-		mistral: ""
+		mistral: "",
+		ollama: ""
 	},
 	models: {
 		openai: "gpt-4",
 		anthropic: "claude-3-opus-20240229",
 		deepseek: "deepseek-chat",
 		gemini: "gemini-pro",
-		mistral: "mistral-medium"
+		mistral: "mistral-medium",
+		ollama: "llama3"
+	},
+	ollamaSettings: {
+		url: "http://localhost:11434"
 	}
 };
 
@@ -186,7 +196,7 @@ export default class ObsidianTestPlugin extends Plugin {
 		const response = this.testDocuments[filePath];
 		
 		const existingLeaves = this.app.workspace.getLeavesOfType(QUESTION_VIEW_TYPE);
-		let leaf;
+		let leaf: WorkspaceLeaf;
 		
 		if (existingLeaves.length > 0) {
 			leaf = existingLeaves[0];

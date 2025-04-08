@@ -1,9 +1,9 @@
 {
 	"id": "llm-test-gen",
 	"name": "LLM Test Generator",
-	"version": "1.0.2",
+	"version": "1.1.0",
 	"minAppVersion": "0.15.0",
-	"description": "Generate AI-powered test questions from your notes with multiple LLM providers (OpenAI, Mistral, Gemini, DeepSeek) to enhance your learning and retention.",
+	"description": "Generate AI-powered test questions from your notes with multiple LLM providers (OpenAI, Mistral, Gemini, DeepSeek, Ollama) to enhance your learning and retention.",
 	"author": "Aldo E George",
 	"authorUrl": "https://github.com/aldo-g",
 	"isDesktopOnly": false

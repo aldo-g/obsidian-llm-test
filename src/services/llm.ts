@@ -27,12 +27,14 @@ export async function generateTestQuestions(
   indexedNotes: IndexedNote[],
   provider: LLMProvider,
   apiKeys: Record<string, string>,
-  models?: Record<string, string>
+  models?: Record<string, string>,
+  ollamaSettings?: { url: string }
 ): Promise<TestQuestionsResponse> {
   const apiKey = getApiKey(provider, apiKeys);
   const model = models?.[provider] || getDefaultModel(provider);
   
-  if (!apiKey) {
+  // Skip API key check for Ollama
+  if (provider !== "ollama" && !apiKey) {
     throw new Error(`Missing API key for ${provider}! Please set it in the plugin settings.`);
   }
 
@@ -72,6 +74,10 @@ Return JSON in this shape (no extra keys, no markdown fences):
       case "mistral":
         responseData = await callMistral(systemInstructions, notesPrompt, apiKey, model);
         break;
+      case "ollama":
+        const ollamaUrl = ollamaSettings?.url || "http://localhost:11434";
+        responseData = await callOllama(systemInstructions, notesPrompt, model, 500, ollamaUrl);
+        break;
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }
@@ -103,12 +109,14 @@ export async function markTestAnswers(
   }[],
   provider: LLMProvider,
   apiKeys: Record<string, string>,
-  models?: Record<string, string>
+  models?: Record<string, string>,
+  ollamaSettings?: { url: string }
 ): Promise<Array<{ questionNumber: number; marks: number; maxMarks: number; feedback: string }>> {
   const apiKey = getApiKey(provider, apiKeys);
   const model = models?.[provider] || getDefaultModel(provider);
   
-  if (!apiKey) {
+  // Skip API key check for Ollama
+  if (provider !== "ollama" && !apiKey) {
     throw new Error(`Missing API key for ${provider}! Please set it in the plugin settings.`);
   }
 
@@ -160,6 +168,10 @@ No extra fields, no markdown code blocks.`;
       case "mistral":
         responseData = await callMistral(systemMessage, userPrompt, apiKey, model, 1000);
         break;
+      case "ollama":
+        const ollamaUrl = ollamaSettings?.url || "http://localhost:11434";
+        responseData = await callOllama(systemMessage, userPrompt, model, 1000, ollamaUrl);
+        break;
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }
@@ -194,6 +206,8 @@ function getDefaultModel(provider: LLMProvider): string {
       return "gemini-pro";
     case "mistral":
       return "mistral-medium";
+    case "ollama":
+      return "llama3";
     default:
       return "";
   }
@@ -476,4 +490,68 @@ async function callMistral(
 
   const responseData = await response.json();
   return responseData.choices?.[0]?.message?.content || "";
+}
+
+async function callOllama(
+  systemMessage: string, 
+  userPrompt: string, 
+  model: string = "llama3", 
+  maxTokens = 500,
+  ollamaUrl = "http://localhost:11434"
+): Promise<string> {
+  const fullPrompt = `${systemMessage}\n\n${userPrompt}`;
+  
+  // Ollama API endpoint for generate
+  const generateUrl = `${ollamaUrl}/api/generate`;
+  
+  const requestBody = {
+    model: model,
+    prompt: fullPrompt,
+    stream: false,
+    options: {
+      num_predict: maxTokens
+    }
+  };
+
+  try {
+    const response = await fetch(generateUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData = {};
+      
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        // If it's not valid JSON, use the text as is
+      }
+      
+      if (errorText.includes("context window") || errorText.includes("context length")) {
+        throw new ContextLengthExceededError(
+          `The document is too large for ${model}'s context window. Please split your document into smaller sections.`
+        );
+      }
+      
+      throw new Error(`Ollama API Error: ${response.status} - ${(errorData as any).error || errorText || response.statusText}`);
+    }
+
+    const responseData = await response.json();
+    return responseData.response || "";
+  } catch (error) {
+    if (error instanceof ContextLengthExceededError) {
+      throw error;
+    }
+    
+    if (error.message?.includes("Failed to fetch")) {
+      throw new Error(`Could not connect to Ollama server at ${ollamaUrl}. Is it running?`);
+    }
+    
+    throw error;
+  }
 }
