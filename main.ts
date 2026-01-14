@@ -54,11 +54,11 @@ const DEFAULT_SETTINGS: ObsidianTestPluginSettings = {
 		ollama: ""
 	},
 	models: {
-		openai: "gpt-4",
-		anthropic: "claude-3-opus-20240229",
+		openai: "gpt-4o",
+		anthropic: "claude-3-5-sonnet-latest",
 		deepseek: "deepseek-chat",
-		gemini: "gemini-pro",
-		mistral: "mistral-medium",
+		gemini: "gemini-1.5-pro",
+		mistral: "mistral-large-latest",
 		ollama: "llama3"
 	},
 	ollamaSettings: {
@@ -88,13 +88,13 @@ export default class ObsidianTestPlugin extends Plugin {
 	async onload() {
 		// Load CSS
 		await this.loadStyles();
-		
+
 		await this.loadSettings();
 		this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new TestDashboardView(leaf, this.app, this.indexedNotes, this));
 		this.registerView(QUESTION_VIEW_TYPE, (leaf) => new QuestionDocumentView(leaf, this.app, this, { description: "", questions: [] }));
-		
+
 		this.addRibbonIcon("flask-conical", "Test dashboard", () => this.openTestDashboard());
-		
+
 		this.addCommand({
 			id: "open-test-dashboard",
 			name: "Open test dashboard",
@@ -102,19 +102,19 @@ export default class ObsidianTestPlugin extends Plugin {
 				this.openTestDashboard();
 			},
 		});
-	
+
 		this.addSettingTab(new SettingsTab(this.app, this));
-		this.registerInterval(window.setInterval(() => {}, 5 * 60 * 1000));
+		this.registerInterval(window.setInterval(() => { }, 5 * 60 * 1000));
 	}
 
 	onunload() {
 		// Do not detach leaves in onunload - this is considered an antipattern
 	}
 
-    async loadStyles() {
-        // Load styles directly from the CSS file via Obsidian API
-        await this.loadData();
-    }
+	async loadStyles() {
+		// Load styles directly from the CSS file via Obsidian API
+		await this.loadData();
+	}
 
 	async loadSettings() {
 		const data = (await this.loadData()) as ObsidianTestPluginData | null;
@@ -141,28 +141,28 @@ export default class ObsidianTestPlugin extends Plugin {
 	async indexTestNotes() {
 		this.indexedNotes = [];
 		const markdownFiles = this.app.vault.getFiles();
-	
+
 		for (const file of markdownFiles) {
 			if (!file.path.endsWith(".md")) continue;
 			const content = await this.app.vault.read(file);
-			
+
 			this.indexedNotes.push({
 				filePath: file.path,
 				content,
 				testStatus: { testsReady: true, passed: 0, total: 0 }
 			});
 		}
-	
+
 		await this.saveSettings();
-	
+
 		const dashLeaf = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE)[0];
 		if (dashLeaf?.view instanceof TestDashboardView) {
 			dashLeaf.view.pluginData = this.indexedNotes;
 			dashLeaf.view.render();
 		}
-	
+
 		new Notice(`Indexed ${this.indexedNotes.length} notes`);
-        return this.indexedNotes;
+		return this.indexedNotes;
 	}
 
 	openTestDashboard() {
@@ -171,7 +171,7 @@ export default class ObsidianTestPlugin extends Plugin {
 			this.app.workspace.revealLeaf(existingLeaves[0]);
 			return;
 		}
-		
+
 		const leaf = this.app.workspace.getLeftLeaf(false);
 		if (!leaf) {
 			new Notice("Could not obtain workspace leaf.");
@@ -194,19 +194,19 @@ export default class ObsidianTestPlugin extends Plugin {
 			return;
 		}
 		const response = this.testDocuments[filePath];
-		
+
 		const existingLeaves = this.app.workspace.getLeavesOfType(QUESTION_VIEW_TYPE);
 		let leaf: WorkspaceLeaf;
-		
+
 		if (existingLeaves.length > 0) {
 			leaf = existingLeaves[0];
 		} else {
 			leaf = this.app.workspace.getLeaf("tab");
 		}
-		
+
 		leaf.setViewState({ type: QUESTION_VIEW_TYPE, active: true });
 		this.app.workspace.revealLeaf(leaf);
-		
+
 		setTimeout(() => {
 			const view = leaf.view as QuestionDocumentView;
 			if (view) {
@@ -214,26 +214,26 @@ export default class ObsidianTestPlugin extends Plugin {
 				view.description = response.description;
 				view.generatedTests = response.questions;
 				view.answers = response.answers || {};
-				
+
 				if (response.markResults && response.markResults.length > 0) {
 					view.markResults = response.markResults;
-					
+
 					if (typeof response.score === "number") {
 						const markResults = response.markResults || [];
 						let totalEarnedMarks = 0;
 						let totalPossibleMarks = 0;
-						
+
 						markResults.forEach(result => {
 							if (result) {
 								totalEarnedMarks += result.marks;
 								totalPossibleMarks += result.maxMarks;
 							}
 						});
-						
+
 						view.scoreSummary = `You scored ${totalEarnedMarks} / ${totalPossibleMarks} marks (${response.score.toFixed(1)}%)`;
 					}
 				}
-				
+
 				view.render();
 			}
 		}, 200);
