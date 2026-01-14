@@ -6,7 +6,6 @@ import { fetchProviderModels, fetchCommunityModels } from "../services/llm";
 export default class SettingsTab extends PluginSettingTab {
 	plugin: MyPlugin;
 	fetchedModels: Record<string, Array<{ id: string; name: string }>> = {};
-	modelFilter: string = "";
 
 	static readonly CORE_MODELS: Record<string, Array<{ id: string; name: string }>> = {
 		openai: [
@@ -33,6 +32,8 @@ export default class SettingsTab extends PluginSettingTab {
 			{ id: "deepseek-coder", name: "DeepSeek Coder" }
 		],
 		gemini: [
+			{ id: "gemini-3-flash-preview", name: "Gemini 3 Flash (Preview)" },
+			{ id: "gemini-2.0-flash-exp", name: "Gemini 2.0 Flash (Experimental)" },
 			{ id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" },
 			{ id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
 			{ id: "gemini-1.5-flash-8b", name: "Gemini 1.5 Flash-8B" },
@@ -62,11 +63,12 @@ export default class SettingsTab extends PluginSettingTab {
 			.addDropdown((dropdown: DropdownComponent) => {
 				dropdown
 					.addOption("openai", "OpenAI")
+					.addOption("anthropic", "Anthropic (Claude)")
 					.addOption("deepseek", "DeepSeek")
 					.addOption("gemini", "Google (Gemini)")
 					.addOption("mistral", "Mistral AI")
 					.addOption("ollama", "Ollama (Local)")
-					.setValue(this.plugin.settings.llmProvider === "anthropic" ? "openai" : this.plugin.settings.llmProvider)
+					.setValue(this.plugin.settings.llmProvider)
 					.onChange(async (value: LLMProvider) => {
 						this.plugin.settings.llmProvider = value;
 						await this.plugin.saveSettings();
@@ -79,33 +81,11 @@ export default class SettingsTab extends PluginSettingTab {
 			const provider = this.plugin.settings.llmProvider;
 			const apiKey = this.plugin.settings.apiKeys[provider];
 
-			// Model Filter
-			new Setting(containerEl)
-				.setName("Filter models")
-				.setDesc("Type to filter the available models list")
-				.addSearch((search) => {
-					search
-						.setPlaceholder("Filter models...")
-						.setValue(this.modelFilter)
-						.onChange((value) => {
-							this.modelFilter = value.toLowerCase();
-							this.display();
-						});
-				})
-				.addExtraButton((button) => {
-					button
-						.setIcon("x-circle")
-						.setTooltip("Clear filter")
-						.onClick(() => {
-							this.modelFilter = "";
-							this.display();
-						});
-				});
 
 			// Model selection
 			const modelSetting = new Setting(containerEl)
 				.setName(`${provider.charAt(0).toUpperCase() + provider.slice(1)} model`)
-				.setDesc(`Select which ${provider} model to use`);
+				.setDesc(`Select which ${provider} model to use. Save your API key and refresh to get latest models. Warning: not all models are compatible with this plugin.`);
 
 			modelSetting.addDropdown(async (dropdown: DropdownComponent) => {
 				const currentModel = this.plugin.settings.models[provider];
@@ -122,22 +102,11 @@ export default class SettingsTab extends PluginSettingTab {
 					modelMap.set(currentModel, currentModel);
 				}
 
-				// Apply filter
-				let visibleModelsCount = 0;
 				modelMap.forEach((name, id) => {
-					if (!this.modelFilter || id.toLowerCase().includes(this.modelFilter) || name.toLowerCase().includes(this.modelFilter)) {
-						dropdown.addOption(id, name);
-						visibleModelsCount++;
-					}
+					dropdown.addOption(id, name);
 				});
 
-				if (visibleModelsCount === 0 && this.modelFilter) {
-					dropdown.addOption("", "No models match filter");
-					dropdown.setDisabled(true);
-				} else {
-					dropdown.setDisabled(false);
-					dropdown.setValue(currentModel);
-				}
+				dropdown.setValue(currentModel);
 
 				// Auto-fetch in background if we have an API key and haven't fetched yet
 				if (fetched.length === 0 && apiKey) {
@@ -264,7 +233,7 @@ export default class SettingsTab extends PluginSettingTab {
 			// Model selection
 			new Setting(containerEl)
 				.setName("Ollama model")
-				.setDesc("Enter the name of the Ollama model to use")
+				.setDesc("Enter the name of the Ollama model to use. Some models may not be compatible with this plugin.")
 				.addText((text) =>
 					text
 						.setPlaceholder("llama3")

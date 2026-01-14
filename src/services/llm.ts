@@ -438,7 +438,9 @@ async function callGemini(
   const modelEndpoint = model === "gemini-pro" ? "gemini-pro" : model;
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent?key=${apiKey}`;
 
-  const requestBody = {
+  const isModernGemini = model.includes("1.5") || model.includes("gemini-3") || model.includes("gemini-2");
+
+  const requestBody: any = {
     contents: [
       {
         parts: [
@@ -447,10 +449,14 @@ async function callGemini(
       }
     ],
     generationConfig: {
-      maxOutputTokens: maxTokens,
+      maxOutputTokens: Math.max(maxTokens, 2048),
       temperature: 0.7
     }
   };
+
+  if (isModernGemini) {
+    requestBody.generationConfig.responseMimeType = "application/json";
+  }
 
   const response = await requestUrl({
     url: apiUrl,
@@ -657,7 +663,30 @@ export async function fetchProviderModels(
         });
         const data = response.json;
         return data.models
-          .filter((m: any) => m.supportedGenerationMethods.includes("generateContent"))
+          .filter((m: any) => {
+            const id = m.name.toLowerCase();
+            const displayName = (m.displayName || "").toLowerCase();
+
+            // 1. Must support content generation
+            if (!m.supportedGenerationMethods.includes("generateContent")) return false;
+
+            // 2. EXCLUDE specialized/incompatible models
+            const isSpecialized =
+              id.includes("nano") || displayName.includes("nano") ||
+              id.includes("robotics") || displayName.includes("robotics") ||
+              id.includes("computer use") || displayName.includes("computer use") ||
+              id.includes("deep research") || displayName.includes("deep research") ||
+              id.includes("aqa") || displayName.includes("aqa") ||
+              id.includes("experimental") || id.includes("exp") && !id.includes("flash") && !id.includes("pro"); // Keep Pro/Flash exp
+
+            if (isSpecialized) return false;
+
+            // 3. ONLY keep Gemini and Gemma models
+            const isTargetFamily = id.includes("gemini") || id.includes("gemma");
+            if (!isTargetFamily) return false;
+
+            return true;
+          })
           .map((m: any) => ({
             id: m.name.replace("models/", ""),
             name: m.displayName || m.name.replace("models/", "")
@@ -670,7 +699,23 @@ export async function fetchProviderModels(
         });
         const data = response.json;
         return data.data
-          .filter((m: any) => !m.id.includes("embed") && !m.id.includes("moderation"))
+          .filter((m: any) => {
+            const id = m.id.toLowerCase();
+
+            // 1. MUST exclude known utility/non-chat models
+            if (id.includes("embed") || id.includes("moderation") || id.includes("vibe-cli")) return false;
+
+            // 2. EXCLUDE experimental/developer/internal models
+            if (id.includes("devstral") || id.includes("magistral") || id.includes("labs-")) return false;
+
+            // 3. CLEAN UP dated versions
+            // Many Mistral models have both a 'latest' and a dated version (e.g. -2411, -2501).
+            // We favor 'latest' tags and primary model names for a cleaner list.
+            const isDated = /-\d{4}$/.test(id);
+            if (isDated && !id.includes("pixtral") && !id.includes("codestral")) return false;
+
+            return true;
+          })
           .map((m: any) => ({ id: m.id, name: m.id }));
       }
       case "ollama": {
