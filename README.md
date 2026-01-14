@@ -1,17 +1,13 @@
 # LLM Testing Plugin
 
-Test your knowledge with AI-generated questions based on your Obsidian notes. This plugin helps you study more effectively by creating contextually relevant questions from your notes and providing instant feedback on your answers, using various Large Language Models.
+Test your knowledge with AI-generated questions based on your Obsidian notes. This plugin works with **any language**, creating contextually relevant questions from your notes and providing instant feedback in your own language using various Large Language Models.
 
 ## Features
 
-- **AI-Generated Questions**: Automatically create test questions based on your notes using multiple LLM providers:
-  - OpenAI (GPT-3.5, GPT-4, GPT-4o)
-  - Mistral AI (Tiny, Small, Medium, Large)
-  - Google Gemini (Pro, 1.5 Pro, 1.5 Flash)
-  - DeepSeek (Chat, Coder)
-  - Ollama (Local models like Llama 3, Gemma, etc.)
+- **AI-Generated Questions**: Automatically create test questions based on your notes using multiple LLM providers. Now supports **any language**—questions and feedback will match the language of your source notes.
+- **Dynamic Model Selection**: Automatically fetches newly released models from providers and filters out incompatible ones to ensure a smooth experience.
 - **Knowledge Assessment**: Test your understanding with customized questions at different difficulty levels
-- **Instant Feedback**: Get immediate feedback on your answers
+- **Instant Feedback**: Get immediate feedback on your answers in the language of the test
 - **Score Tracking**: Track your progress with detailed scoring
 - **Organized Dashboard**: View and manage all your tests in one place
 
@@ -42,16 +38,9 @@ To use this plugin, you'll need an API key from one of the supported providers:
 - **DeepSeek**: Get your API key from the DeepSeek website
 - **Ollama**: No API key required. Download and install Ollama from [Ollama.com](https://ollama.com) and run the models locally
 
-## Model Selection
+You can choose from a wide range of models for each provider. The list of models is **dynamically updated**—just save your API key and hit refresh in the settings to get the latest releases (like GPT-5, o3-mini, Gemini 2.0, etc.). The plugin proactively filters out specialized non-chat models to prevent API errors.
 
-You can choose from various models for each provider:
-
-- **OpenAI**: GPT-3.5 Turbo, GPT-4, GPT-4 Turbo, GPT-4o
-- **Mistral AI**: Mistral Tiny, Mistral Small, Mistral Medium, Mistral Large
-- **Google Gemini**: Gemini 1.5 Pro, Gemini 1.5 Flash
-- **DeepSeek**: DeepSeek Chat, DeepSeek Coder
-
-Models with larger context windows (like GPT-4o, Claude 3 Opus, or Gemini 1.5 Pro) can handle longer notes, while smaller models may be more cost-effective for frequent testing.
+Models with larger context windows can handle longer notes, while smaller models may be more cost-effective for frequent testing.
 
 ## Usage
 
